@@ -11,6 +11,9 @@ use Spryker\Client\Kernel\AbstractDependencyProvider;
 use Spryker\Client\Kernel\Container;
 use Spryker\Client\Redis\RedisClientInterface;
 
+/**
+ * @method \SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig getConfig()
+ */
 class CaptchaAltchaDependencyProvider extends AbstractDependencyProvider
 {
     public const string CLIENT_REDIS = 'CLIENT_REDIS';

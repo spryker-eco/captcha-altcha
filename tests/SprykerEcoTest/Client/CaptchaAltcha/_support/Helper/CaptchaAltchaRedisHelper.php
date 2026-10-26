@@ -11,9 +11,9 @@ namespace SprykerEcoTest\Client\CaptchaAltcha\Helper;
 
 use Codeception\Module;
 use Codeception\TestInterface;
+use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaDependencyProvider;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaFactory;
-use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 use SprykerTest\Shared\Testify\Helper\ConfigHelperTrait;
 use SprykerTest\Shared\Testify\Helper\DependencyHelperTrait;

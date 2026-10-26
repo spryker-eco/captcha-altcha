@@ -12,8 +12,8 @@ use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Spryker\Client\Captcha\CaptchaDependencyProvider;
 use Spryker\Client\Captcha\CaptchaFactory;
-use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use Spryker\Shared\Captcha\CaptchaConstants;
+use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
 /**

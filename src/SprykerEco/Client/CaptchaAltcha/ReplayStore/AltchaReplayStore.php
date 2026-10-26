@@ -7,9 +7,9 @@
 
 namespace SprykerEco\Client\CaptchaAltcha\ReplayStore;
 
+use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\Exception\AltchaReplayStoreException;
-use Spryker\Client\Redis\RedisClientInterface;
 
 class AltchaReplayStore implements AltchaReplayStoreInterface
 {

@@ -15,9 +15,9 @@ use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifierInterface;
-use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
 /**

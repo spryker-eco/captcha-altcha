@@ -10,6 +10,9 @@ namespace SprykerEco\Client\CaptchaAltcha;
 use AltchaOrg\Altcha\Algorithm\DeriveKeyInterface;
 use AltchaOrg\Altcha\Algorithm\Pbkdf2;
 use AltchaOrg\Altcha\Altcha;
+use Spryker\Client\Kernel\AbstractFactory;
+use Spryker\Client\Redis\RedisClientInterface;
+use Spryker\Shared\Log\LoggerTrait;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreator;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreatorInterface;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretChecker;
@@ -20,9 +23,6 @@ use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStore;
 use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStoreInterface;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifier;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifierInterface;
-use Spryker\Client\Kernel\AbstractFactory;
-use Spryker\Client\Redis\RedisClientInterface;
-use Spryker\Shared\Log\LoggerTrait;
 
 /**
  * @method \SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig getConfig()

@@ -8,10 +8,10 @@
 namespace SprykerEcoTest\Client\CaptchaAltcha\ReplayStore;
 
 use Codeception\Test\Unit;
+use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\Exception\AltchaReplayStoreException;
 use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStore;
-use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
 /**

@@ -9,13 +9,13 @@ namespace SprykerEcoTest\Client\CaptchaAltcha\Integration;
 
 use Codeception\Stub;
 use Codeception\Test\Unit;
-use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
-use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStore;
-use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStoreInterface;
 use Spryker\Client\Redis\RedisClient;
 use Spryker\Client\Redis\RedisClientInterface;
 use Spryker\Client\Redis\RedisConfig;
 use Spryker\Client\Redis\RedisFactory;
+use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
+use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStore;
+use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStoreInterface;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
