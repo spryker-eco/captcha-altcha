@@ -1,0 +1,51 @@
+{
+    "name": "spryker-eco/captcha-altcha",
+    "type": "library",
+    "description": "CaptchaAltcha module",
+    "license": "proprietary",
+    "require": {
+        "altcha-org/altcha": "^2.3.0",
+        "php": ">=8.3",
+        "spryker/captcha-extension": "^1.0.0",
+        "spryker/kernel": "^3.30.0",
+        "spryker/log": "^3.0.0",
+        "spryker/redis": "^2.13.0",
+        "spryker/transfer": "^3.27.0"
+    },
+    "require-dev": {
+        "spryker/captcha": "*",
+        "spryker/code-sniffer": "*",
+        "spryker/testify": "*"
+    },
+    "suggest": {
+        "spryker/captcha": "Use the ALTCHA provider plugin through the Captcha client and its form types."
+    },
+    "autoload": {
+        "psr-4": {
+            "SprykerEco\\": "src/SprykerEco/",
+            "SprykerEcoTest\\Client\\CaptchaAltcha\\Helper\\": "tests/SprykerEcoTest/Client/CaptchaAltcha/_support/Helper/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SprykerEcoTest\\": "tests/SprykerEcoTest/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "scripts": {
+        "cs-check": "phpcs -p -s src/ tests/",
+        "cs-fix": "phpcbf -p src/ tests/"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

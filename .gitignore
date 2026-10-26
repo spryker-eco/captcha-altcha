@@ -1,0 +1,24 @@
+# IDEs
+.idea/
+.project/
+.vscode/
+nbproject/
+/.buildpath
+/.settings
+*.sublime-*
+.phpactor.json
+*.AppleDouble
+*.AppleDB
+*.AppleDesktop
+Temporary Items
+.apdisk
+GPATH
+GRTAGS
+GTAGS
+
+# OS
+.DS_Store
+
+# Tests
+tests/SprykerEcoTest/*/*/_support/_generated/
+tests/_output/
