@@ -12,9 +12,6 @@ use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 
 interface AltchaChallengeCreatorInterface
 {
-    /**
-     * Key of the signed challenge data that binds a challenge to the context it was created for.
-     */
     public const string CHALLENGE_DATA_KEY_CONTEXT = 'context';
 
     public function createChallenge(CaptchaChallengeRequestTransfer $captchaChallengeRequestTransfer): CaptchaChallengeResponseTransfer;
