@@ -21,9 +21,9 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
 {
     /**
      * {@inheritDoc}
-     * - Creates an ALTCHA proof-of-work challenge (PBKDF2/SHA-256) signed with `CaptchaAltchaConstants::HMAC_SECRET`; the signed data carries the request context.
+     * - Creates an ALTCHA proof-of-work challenge with the key derivation of `CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM` (Argon2id by default), signed with `CaptchaAltchaConstants::HMAC_SECRET`; the signed data carries the request context.
      * - Returns the challenge inline as the `challenge` attribute of an `altcha-widget` element.
-     * - Returns `isSuccessful=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured.
+     * - Returns `isSuccessful=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured or shorter than 32 bytes.
      *
      * @api
      */
@@ -37,10 +37,9 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
     /**
      * {@inheritDoc}
      * - Expects the base64-encoded payload the `altcha-widget` posts.
-     * - Rejects a payload whose signature, solution or signed context does not match, or whose challenge has expired.
-     * - Marks an accepted challenge as spent in Redis (`CAPTCHA_ALTCHA_REDIS` connection) until it expires; a replayed payload is rejected.
-     * - Returns `isValid=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured.
-     * - Does not catch Redis errors: an unreachable replay store fails the request instead of accepting the payload.
+     * - Rejects a payload longer than 4096 bytes, without an expiry, or whose signature, solution or signed context does not match, or whose challenge has expired.
+     * - Returns the challenge signature as `replayKey` and the challenge expiry as `replayExpiresAt` for a valid payload, so the Captcha client accepts it once.
+     * - Returns `isValid=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured or shorter than 32 bytes.
      *
      * @api
      */
@@ -49,5 +48,16 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
         return $this->getFactory()
             ->createAltchaVerifier()
             ->verify($captchaVerificationRequestTransfer);
+    }
+
+    /**
+     * {@inheritDoc}
+     * - Returns `null`: the `altcha-widget` posts its payload in the CAPTCHA form field, named through `CaptchaWidget.nameAttribute`.
+     *
+     * @api
+     */
+    public function getResponseFieldName(): ?string
+    {
+        return null;
     }
 }

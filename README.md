@@ -54,6 +54,9 @@ $config[CaptchaAltchaConstants::MINIMUM_COUNTER] = 20;   // the browser derives 
 $config[CaptchaAltchaConstants::CHALLENGE_TTL] = 300;    // seconds
 ```
 
+CAPTCHA is off by default (`CaptchaConstants::IS_CAPTCHA_ENABLED`); set it to `true` to enable the step-up. Only
+`HMAC_SECRET` is required; the other settings above show their defaults.
+
 | Setting | Default | Meaning |
 |---|---|---|
 | `HMAC_SECRET` | none | Signs the challenges. Required, at least 32 bytes. |

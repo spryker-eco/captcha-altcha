@@ -51,8 +51,20 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $captchaVerificationResponseTransfer = $captchaClient->verifyCaptcha($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
 
         // Assert
-        $this->assertTrue($captchaClient->isCaptchaEnabled());
+        $this->assertTrue($captchaClient->isCaptchaEnabled((new CaptchaChallengeRequestTransfer())->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)));
         $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
+    }
+
+    public function testPostsPayloadInCaptchaFormField(): void
+    {
+        // Arrange
+        $captchaClient = $this->haveCaptchaClientWithAltchaProvider();
+
+        // Act
+        $responseFieldName = $captchaClient->findResponseFieldName();
+
+        // Assert
+        $this->assertNull($responseFieldName);
     }
 
     public function testCaptchaClientAcceptsSolvedChallengeExactlyOnce(): void
