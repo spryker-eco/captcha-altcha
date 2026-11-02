@@ -5,25 +5,21 @@
     "license": "proprietary",
     "require": {
         "altcha-org/altcha": "^2.3.0",
+        "ext-sodium": "*",
         "php": ">=8.3",
+        "spryker/captcha": "^1.0.0",
         "spryker/captcha-extension": "^1.0.0",
-        "spryker/kernel": "^3.30.0",
+        "spryker/kernel": "^3.77.0",
         "spryker/log": "^3.0.0",
-        "spryker/redis": "^2.13.0",
         "spryker/transfer": "^3.27.0"
     },
     "require-dev": {
-        "spryker/captcha": "*",
         "spryker/code-sniffer": "*",
         "spryker/testify": "*"
     },
-    "suggest": {
-        "spryker/captcha": "Use the ALTCHA provider plugin through the Captcha client and its form types."
-    },
     "autoload": {
         "psr-4": {
-            "SprykerEco\\": "src/SprykerEco/",
-            "SprykerEcoTest\\Client\\CaptchaAltcha\\Helper\\": "tests/SprykerEcoTest/Client/CaptchaAltcha/_support/Helper/"
+            "SprykerEco\\": "src/SprykerEco/"
         }
     },
     "autoload-dev": {

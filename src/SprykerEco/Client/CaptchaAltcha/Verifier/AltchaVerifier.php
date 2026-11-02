@@ -15,21 +15,17 @@ use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
 use Generated\Shared\Transfer\MessageTransfer;
 use InvalidArgumentException;
+use Spryker\Shared\Captcha\CaptchaConfig;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreatorInterface;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretCheckerInterface;
-use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStoreInterface;
-use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig as SharedCaptchaAltchaConfig;
 
 class AltchaVerifier implements AltchaVerifierInterface
 {
-    protected const int MINIMUM_REPLAY_TTL = 1;
-
     public function __construct(
         protected Altcha $altcha,
         protected DeriveKeyInterface $keyDerivationAlgorithm,
         protected AltchaSecretCheckerInterface $altchaSecretChecker,
-        protected AltchaReplayStoreInterface $altchaReplayStore,
         protected CaptchaAltchaConfig $captchaAltchaConfig,
     ) {
     }
@@ -37,13 +33,19 @@ class AltchaVerifier implements AltchaVerifierInterface
     public function verify(CaptchaVerificationRequestTransfer $captchaVerificationRequestTransfer): CaptchaVerificationResponseTransfer
     {
         if (!$this->altchaSecretChecker->isHmacSecretConfigured()) {
-            return $this->createRejectedResponse(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE);
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE);
+        }
+
+        $encodedPayload = (string)$captchaVerificationRequestTransfer->getPayload();
+
+        if (strlen($encodedPayload) > $this->captchaAltchaConfig->getMaximumPayloadLength()) {
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
         }
 
         try {
-            $payload = Payload::fromBase64((string)$captchaVerificationRequestTransfer->getPayload());
+            $payload = Payload::fromBase64($encodedPayload);
         } catch (InvalidArgumentException) {
-            return $this->createRejectedResponse(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
         }
 
         return $this->verifyPayload($payload, $captchaVerificationRequestTransfer->getContext());
@@ -51,23 +53,27 @@ class AltchaVerifier implements AltchaVerifierInterface
 
     protected function verifyPayload(Payload $payload, ?string $context): CaptchaVerificationResponseTransfer
     {
+        $expiresAt = $payload->challenge->parameters->expiresAt;
+
+        if (!$expiresAt) {
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
+        }
+
         $verifySolutionResult = $this->altcha->verifySolution(new VerifySolutionOptions($payload, $this->keyDerivationAlgorithm));
 
         if ($verifySolutionResult->expired) {
-            return $this->createRejectedResponse(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_EXPIRED)->setIsExpired(true);
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_EXPIRED)->setIsExpired(true);
         }
 
         if (!$verifySolutionResult->verified || !$this->isSignedContextMatching($payload, $context)) {
-            return $this->createRejectedResponse(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
-        }
-
-        if (!$this->altchaReplayStore->markChallengeAsSpent((string)$payload->challenge->signature, $this->calculateReplayTtl($payload))) {
-            return $this->createRejectedResponse(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
+            return $this->createRejectedResponse(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_INVALID);
         }
 
         return (new CaptchaVerificationResponseTransfer())
             ->setIsValid(true)
-            ->setIsExpired(false);
+            ->setIsExpired(false)
+            ->setReplayKey((string)$payload->challenge->signature)
+            ->setReplayExpiresAt((int)ceil($expiresAt));
     }
 
     protected function isSignedContextMatching(Payload $payload, ?string $context): bool
@@ -75,13 +81,6 @@ class AltchaVerifier implements AltchaVerifierInterface
         $signedContext = $payload->challenge->parameters->data[AltchaChallengeCreatorInterface::CHALLENGE_DATA_KEY_CONTEXT] ?? null;
 
         return is_string($signedContext) && $signedContext === $context;
-    }
-
-    protected function calculateReplayTtl(Payload $payload): int
-    {
-        $expiresAt = $payload->challenge->parameters->expiresAt ?: time() + $this->captchaAltchaConfig->getChallengeTtl();
-
-        return max(static::MINIMUM_REPLAY_TTL, (int)ceil($expiresAt - time()));
     }
 
     protected function createRejectedResponse(string $glossaryKey): CaptchaVerificationResponseTransfer

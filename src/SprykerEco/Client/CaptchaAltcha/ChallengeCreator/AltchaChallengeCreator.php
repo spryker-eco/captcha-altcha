@@ -14,10 +14,10 @@ use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaWidgetTransfer;
 use Generated\Shared\Transfer\MessageTransfer;
+use Spryker\Shared\Captcha\CaptchaConfig;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretCheckerInterface;
 use SprykerEco\Client\CaptchaAltcha\Mapper\AltchaWidgetMapperInterface;
-use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig as SharedCaptchaAltchaConfig;
 
 class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
 {
@@ -35,7 +35,7 @@ class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
         if (!$this->altchaSecretChecker->isHmacSecretConfigured()) {
             return (new CaptchaChallengeResponseTransfer())
                 ->setIsSuccessful(false)
-                ->addMessage((new MessageTransfer())->setValue(SharedCaptchaAltchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE));
+                ->addMessage((new MessageTransfer())->setValue(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE));
         }
 
         $challenge = $this->altcha->createChallenge(
@@ -55,6 +55,7 @@ class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
             algorithm: $this->keyDerivationAlgorithm,
             cost: $this->captchaAltchaConfig->getCost(),
             counter: random_int($minimumCounter, $maximumCounter),
+            memoryCost: $this->captchaAltchaConfig->getMemoryCost(),
             expiresAt: time() + $this->captchaAltchaConfig->getChallengeTtl(),
             data: [static::CHALLENGE_DATA_KEY_CONTEXT => $context],
         );

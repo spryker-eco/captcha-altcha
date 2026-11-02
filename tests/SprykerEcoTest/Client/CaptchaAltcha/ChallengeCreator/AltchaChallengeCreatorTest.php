@@ -37,6 +37,8 @@ class AltchaChallengeCreatorTest extends Unit
 
     protected const string EXPECTED_ALGORITHM = 'PBKDF2/SHA-256';
 
+    protected const string EXPECTED_ARGON2ID_ALGORITHM = 'ARGON2ID';
+
     protected const string GLOSSARY_KEY_UNAVAILABLE = 'captcha.error.unavailable';
 
     protected const int SOLVED_CHALLENGE_COUNT = 5;
@@ -95,7 +97,7 @@ class AltchaChallengeCreatorTest extends Unit
         $this->assertLessThanOrEqual(time() + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
     }
 
-    public function testDrawsSecretCounterBetweenCostAndTwiceTheCost(): void
+    public function testDrawsSecretCounterBetweenMinimumAndTwiceTheMinimum(): void
     {
         // Arrange
         $challenges = [];
@@ -110,9 +112,36 @@ class AltchaChallengeCreatorTest extends Unit
 
         // Assert
         foreach ($counters as $counter) {
-            $this->assertGreaterThanOrEqual(CaptchaAltchaClientTester::COST, $counter);
-            $this->assertLessThanOrEqual(2 * CaptchaAltchaClientTester::COST, $counter);
+            $this->assertGreaterThanOrEqual(CaptchaAltchaClientTester::MINIMUM_COUNTER, $counter);
+            $this->assertLessThanOrEqual(2 * CaptchaAltchaClientTester::MINIMUM_COUNTER, $counter);
         }
+    }
+
+    public function testUsesArgon2idWithConfiguredCostAndMemory(): void
+    {
+        // Arrange
+        $this->tester->haveArgon2idConfiguration();
+
+        // Act
+        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+
+        // Assert
+        $this->assertSame(static::EXPECTED_ARGON2ID_ALGORITHM, $challenge->parameters->algorithm);
+        $this->assertSame(CaptchaAltchaClientTester::ARGON2ID_COST, $challenge->parameters->cost);
+        $this->assertSame(CaptchaAltchaClientTester::ARGON2ID_MEMORY_COST, $challenge->parameters->memoryCost);
+    }
+
+    /**
+     * The key signature lets the verifier compare an HMAC instead of deriving the key again, so a memory-hard
+     * algorithm costs the server one derivation per challenge, not two.
+     */
+    public function testSignsTheDerivedKeyOfTheSecretCounter(): void
+    {
+        // Act
+        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+
+        // Assert
+        $this->assertNotEmpty($challenge->parameters->keySignature);
     }
 
     public function testFailsClosedAndLogsErrorWithoutHmacSecret(): void

@@ -14,8 +14,6 @@ use Codeception\Test\Unit;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
-use Spryker\Client\Redis\RedisClientInterface;
 use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifierInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
@@ -39,6 +37,10 @@ class AltchaVerifierTest extends Unit
     protected const string GLOSSARY_KEY_UNAVAILABLE = 'captcha.error.unavailable';
 
     protected const string FORGED_SIGNATURE = '0000000000000000000000000000000000000000000000000000000000000000';
+
+    protected const int MAXIMUM_PAYLOAD_LENGTH = 4096;
+
+    protected const string PADDING_KEY = 'padding';
 
     protected const string FORGED_SALT = 'ffffffffffffffffffffffffffffffff';
 
@@ -83,10 +85,35 @@ class AltchaVerifierTest extends Unit
         $this->assertRejectedWith(static::GLOSSARY_KEY_INVALID, $captchaVerificationResponseTransfer);
     }
 
-    public function testRejectsPayloadWithTamperedCounter(): void
+    /**
+     * A challenge with a key signature is verified by the HMAC of the submitted derived key, which is the proof of work.
+     */
+    public function testRejectsPayloadWithTamperedDerivedKey(): void
     {
         // Arrange
         $challenge = $this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+        $solution = $this->tester->solveChallenge($challenge);
+        $payload = $this->tester->createPayload($challenge, new Solution($solution->counter, strrev($solution->derivedKey)));
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
+            $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
+        );
+
+        // Assert
+        $this->assertRejectedWith(static::GLOSSARY_KEY_INVALID, $captchaVerificationResponseTransfer);
+    }
+
+    /**
+     * Without a key signature the library derives the key from the submitted counter, so the counter has to match.
+     */
+    public function testRejectsPayloadWithTamperedCounterForChallengeWithoutKeySignature(): void
+    {
+        // Arrange
+        $challenge = $this->tester->createSignedChallenge(
+            [CaptchaAltchaClientTester::CHALLENGE_DATA_KEY_CONTEXT => CaptchaAltchaClientTester::CONTEXT_CUSTOMER],
+            time() + CaptchaAltchaClientTester::CHALLENGE_TTL,
+        );
         $solution = $this->tester->solveChallenge($challenge);
         $payload = $this->tester->createPayload($challenge, new Solution($solution->counter + 1, $solution->derivedKey));
 
@@ -210,15 +237,57 @@ class AltchaVerifierTest extends Unit
         ];
     }
 
-    public function testRejectsReplayedPayload(): void
+    /**
+     * The verifier itself does not remember spent challenges: it hands the signature to the Captcha client, which
+     * accepts each replay key once for as long as the challenge could be submitted.
+     */
+    public function testReturnsChallengeSignatureAndExpiryAsReplayKey(): void
+    {
+        // Arrange
+        $challenge = $this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+        $payload = $this->tester->createPayload($challenge, $this->tester->solveChallenge($challenge));
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
+            $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
+        );
+
+        // Assert
+        $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
+        $this->assertSame($challenge->signature, $captchaVerificationResponseTransfer->getReplayKey());
+        $this->assertSame((int)$challenge->parameters->expiresAt, $captchaVerificationResponseTransfer->getReplayExpiresAt());
+    }
+
+    /**
+     * Only an accepted payload may be spent: otherwise anyone could burn a victim's solved payload by submitting it to
+     * the wrong form first.
+     */
+    public function testRejectedPayloadCarriesNoReplayKey(): void
     {
         // Arrange
         $payload = $this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
-        $altchaVerifier = $this->createAltchaVerifier();
-        $altchaVerifier->verify($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
 
         // Act
-        $captchaVerificationResponseTransfer = $altchaVerifier->verify(
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
+            $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_USER),
+        );
+
+        // Assert
+        $this->assertFalse($captchaVerificationResponseTransfer->getIsValid());
+        $this->assertNull($captchaVerificationResponseTransfer->getReplayKey());
+    }
+
+    /**
+     * The library ignores unknown top-level keys, so the padded payload would be accepted if its length were not checked.
+     */
+    public function testRejectsOtherwiseValidPayloadLongerThanTheMaximum(): void
+    {
+        // Arrange
+        $payloadData = json_decode(base64_decode($this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)), true);
+        $payload = base64_encode(json_encode($payloadData + [static::PADDING_KEY => str_repeat('a', static::MAXIMUM_PAYLOAD_LENGTH)]));
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
             $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
         );
 
@@ -227,18 +296,38 @@ class AltchaVerifierTest extends Unit
     }
 
     /**
-     * Only an accepted payload is spent: otherwise anyone could burn a victim's solved payload by submitting it to
-     * the wrong form first.
+     * The library treats a challenge without expiry as valid forever; the challenge creator never produces one.
      */
-    public function testRejectedPayloadIsNotSpent(): void
+    public function testRejectsSignedChallengeWithoutExpiry(): void
     {
         // Arrange
-        $payload = $this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
-        $altchaVerifier = $this->createAltchaVerifier();
-        $altchaVerifier->verify($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_USER));
+        $payload = $this->tester->haveSolvedPayloadForSignedChallenge(
+            [CaptchaAltchaClientTester::CHALLENGE_DATA_KEY_CONTEXT => CaptchaAltchaClientTester::CONTEXT_CUSTOMER],
+            0,
+        );
 
         // Act
-        $captchaVerificationResponseTransfer = $altchaVerifier->verify(
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
+            $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
+        );
+
+        // Assert
+        $this->assertRejectedWith(static::GLOSSARY_KEY_INVALID, $captchaVerificationResponseTransfer);
+    }
+
+    /**
+     * Challenges signed before the key signature was introduced carry none; the library derives the key once instead.
+     */
+    public function testAcceptsChallengeWithoutKeySignature(): void
+    {
+        // Arrange
+        $payload = $this->tester->haveSolvedPayloadForSignedChallenge(
+            [CaptchaAltchaClientTester::CHALLENGE_DATA_KEY_CONTEXT => CaptchaAltchaClientTester::CONTEXT_CUSTOMER],
+            time() + CaptchaAltchaClientTester::CHALLENGE_TTL,
+        );
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
             $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
         );
 
@@ -246,23 +335,37 @@ class AltchaVerifierTest extends Unit
         $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
     }
 
-    /**
-     * An unreachable replay store must fail the request: catching the error would either reject every login silently
-     * or accept a payload that could not be marked as spent.
-     */
-    public function testLetsReplayStoreFailureSurfaceInsteadOfAccepting(): void
+    public function testAcceptsPayloadSolvedWithArgon2id(): void
+    {
+        // Arrange
+        $this->tester->haveArgon2idConfiguration();
+        $payload = $this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->createAltchaVerifier()->verify(
+            $this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
+        );
+
+        // Assert
+        $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
+    }
+
+    public function testFailsClosedAndLogsErrorWithTooShortHmacSecret(): void
     {
         // Arrange
         $payload = $this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
-        $redisClientMock = $this->createMock(RedisClientInterface::class);
-        $redisClientMock->method('set')->willThrowException(new RuntimeException('Connection refused'));
-        $this->tester->haveCaptchaAltchaRedisClient($redisClientMock);
-
-        // Assert
-        $this->expectException(RuntimeException::class);
+        $this->tester->haveAltchaConfiguration(CaptchaAltchaClientTester::TOO_SHORT_HMAC_SECRET);
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->once())->method('error');
+        $this->tester->mockFactoryMethod('getLogger', $loggerMock);
 
         // Act
-        $this->createAltchaVerifier()->verify($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+        $captchaVerificationResponseTransfer = (new AltchaCaptchaProviderPlugin())
+            ->setFactory($this->tester->getFactory())
+            ->verify($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+
+        // Assert
+        $this->assertRejectedWith(static::GLOSSARY_KEY_UNAVAILABLE, $captchaVerificationResponseTransfer);
     }
 
     public function testFailsClosedAndLogsErrorWithoutHmacSecret(): void

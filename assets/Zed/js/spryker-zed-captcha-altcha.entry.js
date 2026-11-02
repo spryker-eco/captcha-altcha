@@ -6,3 +6,5 @@
 'use strict';
 
 import 'altcha';
+
+$altcha.algorithms.set('ARGON2ID', () => new Worker(new URL('altcha/workers/argon2id', import.meta.url)));

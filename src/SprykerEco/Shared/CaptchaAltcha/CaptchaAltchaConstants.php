@@ -15,7 +15,7 @@ interface CaptchaAltchaConstants
     /**
      * Specification:
      * - Defines the secret that signs (HMAC) ALTCHA challenges.
-     * - Required: without it, challenges are neither created nor accepted (fail closed).
+     * - Required, at least 32 bytes long: without it, or with a shorter one, challenges are neither created nor accepted (fail closed).
      * - Provide it from an environment variable, never hard-code it.
      *
      * @api
@@ -24,11 +24,38 @@ interface CaptchaAltchaConstants
 
     /**
      * Specification:
-     * - Defines the PBKDF2 iteration count of one key derivation of an ALTCHA challenge.
+     * - Defines the key derivation algorithm of the proof-of-work: `ARGON2ID` or `PBKDF2/SHA-256`.
+     * - `ARGON2ID` is memory-hard and resists GPU solvers; it needs the `sodium` PHP extension.
+     *
+     * @api
+     */
+    public const string KEY_DERIVATION_ALGORITHM = 'CAPTCHA_ALTCHA:KEY_DERIVATION_ALGORITHM';
+
+    /**
+     * Specification:
+     * - Defines the iteration count of one key derivation of an ALTCHA challenge.
      *
      * @api
      */
     public const string COST = 'CAPTCHA_ALTCHA:COST';
+
+    /**
+     * Specification:
+     * - Defines the memory of one `ARGON2ID` key derivation in KiB.
+     * - Not used by `PBKDF2/SHA-256`.
+     *
+     * @api
+     */
+    public const string MEMORY_COST = 'CAPTCHA_ALTCHA:MEMORY_COST';
+
+    /**
+     * Specification:
+     * - Defines the lower bound of the secret counter of an ALTCHA challenge: a browser derives up to this many keys to solve it.
+     * - The counter is drawn from `[minimum, 2 × minimum]`.
+     *
+     * @api
+     */
+    public const string MINIMUM_COUNTER = 'CAPTCHA_ALTCHA:MINIMUM_COUNTER';
 
     /**
      * Specification:
@@ -37,76 +64,4 @@ interface CaptchaAltchaConstants
      * @api
      */
     public const string CHALLENGE_TTL = 'CAPTCHA_ALTCHA:CHALLENGE_TTL';
-
-    /**
-     * Specification:
-     * - Defines the scheme (tcp:// or redis://) of the Redis connection that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_SCHEME = 'CAPTCHA_ALTCHA:REDIS_SCHEME';
-
-    /**
-     * Specification:
-     * - Defines the host of the Redis connection that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_HOST = 'CAPTCHA_ALTCHA:REDIS_HOST';
-
-    /**
-     * Specification:
-     * - Defines the port of the Redis connection that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_PORT = 'CAPTCHA_ALTCHA:REDIS_PORT';
-
-    /**
-     * Specification:
-     * - Defines the username for Redis ACL authentication of the connection that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_USER = 'CAPTCHA_ALTCHA:REDIS_USER';
-
-    /**
-     * Specification:
-     * - Defines the password of the Redis connection that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_PASSWORD = 'CAPTCHA_ALTCHA:REDIS_PASSWORD';
-
-    /**
-     * Specification:
-     * - Defines the Redis database that stores spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_DATABASE = 'CAPTCHA_ALTCHA:REDIS_DATABASE';
-
-    /**
-     * Specification:
-     * - Enables or disables a persistent Redis connection for spent ALTCHA challenges.
-     *
-     * @api
-     */
-    public const string REDIS_PERSISTENT_CONNECTION = 'CAPTCHA_ALTCHA:REDIS_PERSISTENT_CONNECTION';
-
-    /**
-     * Specification:
-     * - Defines an array of DSN strings for a multi-instance cluster or replication Redis setup.
-     *
-     * @api
-     */
-    public const string REDIS_DATA_SOURCE_NAMES = 'CAPTCHA_ALTCHA:REDIS_DATA_SOURCE_NAMES';
-
-    /**
-     * Specification:
-     * - Defines an array of Redis client options.
-     *
-     * @api
-     */
-    public const string REDIS_CONNECTION_OPTIONS = 'CAPTCHA_ALTCHA:REDIS_CONNECTION_OPTIONS';
 }

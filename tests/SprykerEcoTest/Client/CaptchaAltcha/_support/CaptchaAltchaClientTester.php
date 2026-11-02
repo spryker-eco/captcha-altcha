@@ -7,6 +7,8 @@
 
 namespace SprykerEcoTest\Client\CaptchaAltcha;
 
+use AltchaOrg\Altcha\Algorithm\Argon2id;
+use AltchaOrg\Altcha\Algorithm\DeriveKeyInterface;
 use AltchaOrg\Altcha\Algorithm\Pbkdf2;
 use AltchaOrg\Altcha\Altcha;
 use AltchaOrg\Altcha\Challenge;
@@ -19,6 +21,7 @@ use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
+use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaFactory;
 use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
@@ -43,16 +46,32 @@ class CaptchaAltchaClientTester extends Actor
 {
     use _generated\CaptchaAltchaClientTesterActions;
 
-    public const string HMAC_SECRET = 'test-captcha-altcha-hmac-secret';
+    public const string HMAC_SECRET = 'test-captcha-altcha-hmac-secret-of-sufficient-length';
 
-    public const string OTHER_HMAC_SECRET = 'other-captcha-altcha-hmac-secret';
+    public const string OTHER_HMAC_SECRET = 'other-captcha-altcha-hmac-secret-of-sufficient-length';
 
     /**
-     * Keeps solving in the test below a millisecond-range budget: about `counter × cost` PBKDF2 iterations.
+     * One byte shorter than the minimum length the provider accepts.
+     */
+    public const string TOO_SHORT_HMAC_SECRET = 'test-captcha-altcha-hmac-secret';
+
+    /**
+     * Keeps solving in the tests below a millisecond-range budget: about `counter × cost` PBKDF2 iterations.
      */
     public const int COST = 10;
 
-    public const int CHALLENGE_TTL = 1200;
+    public const int MINIMUM_COUNTER = 10;
+
+    /**
+     * The smallest Argon2id settings libsodium accepts: one pass over 8 KiB, so the tests prove the algorithm, not its cost.
+     */
+    public const int ARGON2ID_COST = 1;
+
+    public const int ARGON2ID_MEMORY_COST = 8;
+
+    public const int ARGON2ID_MINIMUM_COUNTER = 2;
+
+    public const int CHALLENGE_TTL = 300;
 
     public const string CONTEXT_CUSTOMER = 'customer';
 
@@ -70,8 +89,19 @@ class CaptchaAltchaClientTester extends Actor
     public function haveAltchaConfiguration(string $hmacSecret = self::HMAC_SECRET, int $challengeTtl = self::CHALLENGE_TTL): void
     {
         $this->setConfig(CaptchaAltchaConstants::HMAC_SECRET, $hmacSecret);
+        $this->setConfig(CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM, CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256);
         $this->setConfig(CaptchaAltchaConstants::COST, static::COST);
+        $this->setConfig(CaptchaAltchaConstants::MINIMUM_COUNTER, static::MINIMUM_COUNTER);
         $this->setConfig(CaptchaAltchaConstants::CHALLENGE_TTL, $challengeTtl);
+    }
+
+    public function haveArgon2idConfiguration(): void
+    {
+        $this->haveAltchaConfiguration();
+        $this->setConfig(CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM, CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_ARGON2ID);
+        $this->setConfig(CaptchaAltchaConstants::COST, static::ARGON2ID_COST);
+        $this->setConfig(CaptchaAltchaConstants::MEMORY_COST, static::ARGON2ID_MEMORY_COST);
+        $this->setConfig(CaptchaAltchaConstants::MINIMUM_COUNTER, static::ARGON2ID_MINIMUM_COUNTER);
     }
 
     public function createChallengeThroughPlugin(string $context): CaptchaChallengeResponseTransfer
@@ -95,7 +125,7 @@ class CaptchaAltchaClientTester extends Actor
 
     public function solveChallenge(Challenge $challenge): Solution
     {
-        $solution = (new Altcha())->solveChallenge(new SolveChallengeOptions($challenge, new Pbkdf2()));
+        $solution = (new Altcha())->solveChallenge(new SolveChallengeOptions($challenge, $this->createKeyDerivationAlgorithm($challenge)));
         $this->assertNotNull($solution);
 
         return $solution;
@@ -114,8 +144,8 @@ class CaptchaAltchaClientTester extends Actor
     }
 
     /**
-     * Signs a challenge directly with the library, for cases the challenge creator never produces (a past expiry,
-     * another secret).
+     * Signs a challenge directly with the library, for cases the challenge creator never produces (a past or missing
+     * expiry, another secret, no key signature).
      *
      * @param array<string, string>|null $data
      */
@@ -138,5 +168,14 @@ class CaptchaAltchaClientTester extends Actor
         $challenge = $this->createSignedChallenge($data, $expiresAt, $hmacSecret);
 
         return $this->createPayload($challenge, $this->solveChallenge($challenge));
+    }
+
+    protected function createKeyDerivationAlgorithm(Challenge $challenge): DeriveKeyInterface
+    {
+        if ($challenge->parameters->algorithm === CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_ARGON2ID) {
+            return new Argon2id();
+        }
+
+        return new Pbkdf2();
     }
 }

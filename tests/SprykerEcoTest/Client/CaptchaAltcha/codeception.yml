@@ -23,5 +23,4 @@ suites:
                 - \SprykerTest\Shared\Testify\Helper\LocatorHelper
                 - \SprykerTest\Shared\Testify\Helper\DependencyHelper
                 - \SprykerTest\Client\Testify\Helper\FactoryHelper
-                - \SprykerTest\Client\Testify\Helper\DependencyProviderHelper
-                - \SprykerEcoTest\Client\CaptchaAltcha\Helper\CaptchaAltchaRedisHelper
+                - \SprykerTest\Client\Captcha\Helper\CaptchaRedisHelper

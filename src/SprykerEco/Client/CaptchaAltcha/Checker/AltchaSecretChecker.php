@@ -14,6 +14,8 @@ class AltchaSecretChecker implements AltchaSecretCheckerInterface
 {
     protected const string LOG_MESSAGE_HMAC_SECRET_MISSING = 'The ALTCHA HMAC secret (CaptchaAltchaConstants::HMAC_SECRET) is not configured: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected.';
 
+    protected const string LOG_MESSAGE_HMAC_SECRET_TOO_SHORT = 'The ALTCHA HMAC secret (CaptchaAltchaConstants::HMAC_SECRET) is shorter than %d bytes, so it can be brute-forced from a signed challenge: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected.';
+
     public function __construct(
         protected CaptchaAltchaConfig $captchaAltchaConfig,
         protected LoggerInterface $logger,
@@ -22,12 +24,22 @@ class AltchaSecretChecker implements AltchaSecretCheckerInterface
 
     public function isHmacSecretConfigured(): bool
     {
-        if ($this->captchaAltchaConfig->getHmacSecret() !== '') {
-            return true;
+        $hmacSecretLength = strlen($this->captchaAltchaConfig->getHmacSecret());
+
+        if ($hmacSecretLength === 0) {
+            $this->logger->error(static::LOG_MESSAGE_HMAC_SECRET_MISSING);
+
+            return false;
         }
 
-        $this->logger->error(static::LOG_MESSAGE_HMAC_SECRET_MISSING);
+        $hmacSecretMinimumLength = $this->captchaAltchaConfig->getHmacSecretMinimumLength();
 
-        return false;
+        if ($hmacSecretLength < $hmacSecretMinimumLength) {
+            $this->logger->error(sprintf(static::LOG_MESSAGE_HMAC_SECRET_TOO_SHORT, $hmacSecretMinimumLength));
+
+            return false;
+        }
+
+        return true;
     }
 }

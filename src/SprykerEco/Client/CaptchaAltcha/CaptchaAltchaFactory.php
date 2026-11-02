@@ -7,11 +7,13 @@
 
 namespace SprykerEco\Client\CaptchaAltcha;
 
+use AltchaOrg\Altcha\Algorithm\Argon2id;
 use AltchaOrg\Altcha\Algorithm\DeriveKeyInterface;
 use AltchaOrg\Altcha\Algorithm\Pbkdf2;
 use AltchaOrg\Altcha\Altcha;
 use Spryker\Client\Kernel\AbstractFactory;
-use Spryker\Client\Redis\RedisClientInterface;
+use Spryker\Shared\Kernel\StrategyResolver;
+use Spryker\Shared\Kernel\StrategyResolverInterface;
 use Spryker\Shared\Log\LoggerTrait;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreator;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreatorInterface;
@@ -19,8 +21,6 @@ use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretChecker;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretCheckerInterface;
 use SprykerEco\Client\CaptchaAltcha\Mapper\AltchaWidgetMapper;
 use SprykerEco\Client\CaptchaAltcha\Mapper\AltchaWidgetMapperInterface;
-use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStore;
-use SprykerEco\Client\CaptchaAltcha\ReplayStore\AltchaReplayStoreInterface;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifier;
 use SprykerEco\Client\CaptchaAltcha\Verifier\AltchaVerifierInterface;
 
@@ -48,14 +48,8 @@ class CaptchaAltchaFactory extends AbstractFactory
             $this->createAltcha(),
             $this->createKeyDerivationAlgorithm(),
             $this->createAltchaSecretChecker(),
-            $this->createAltchaReplayStore(),
             $this->getConfig(),
         );
-    }
-
-    public function createAltchaReplayStore(): AltchaReplayStoreInterface
-    {
-        return new AltchaReplayStore($this->getRedisClient(), $this->getConfig());
     }
 
     public function createAltchaSecretChecker(): AltchaSecretCheckerInterface
@@ -70,16 +64,32 @@ class CaptchaAltchaFactory extends AbstractFactory
 
     public function createAltcha(): Altcha
     {
-        return new Altcha($this->getConfig()->getHmacSecret());
+        return new Altcha($this->getConfig()->getHmacSecret(), $this->getConfig()->getHmacKeySignatureSecret());
     }
 
     public function createKeyDerivationAlgorithm(): DeriveKeyInterface
     {
-        return new Pbkdf2();
+        return $this->createKeyDerivationAlgorithmStrategyResolver()->get($this->getConfig()->getKeyDerivationAlgorithm());
     }
 
-    public function getRedisClient(): RedisClientInterface
+    /**
+     * @return \Spryker\Shared\Kernel\StrategyResolverInterface<\AltchaOrg\Altcha\Algorithm\DeriveKeyInterface>
+     */
+    public function createKeyDerivationAlgorithmStrategyResolver(): StrategyResolverInterface
     {
-        return $this->getProvidedDependency(CaptchaAltchaDependencyProvider::CLIENT_REDIS);
+        return new StrategyResolver([
+            CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_ARGON2ID => fn (): DeriveKeyInterface => $this->createArgon2idKeyDerivationAlgorithm(),
+            CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 => fn (): DeriveKeyInterface => $this->createPbkdf2KeyDerivationAlgorithm(),
+        ]);
+    }
+
+    public function createArgon2idKeyDerivationAlgorithm(): DeriveKeyInterface
+    {
+        return new Argon2id();
+    }
+
+    public function createPbkdf2KeyDerivationAlgorithm(): DeriveKeyInterface
+    {
+        return new Pbkdf2();
     }
 }

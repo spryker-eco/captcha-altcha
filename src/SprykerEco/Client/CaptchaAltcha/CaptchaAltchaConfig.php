@@ -7,29 +7,64 @@
 
 namespace SprykerEco\Client\CaptchaAltcha;
 
-use Generated\Shared\Transfer\RedisConfigurationTransfer;
-use Generated\Shared\Transfer\RedisCredentialsTransfer;
 use Spryker\Client\Kernel\AbstractBundleConfig;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 
 class CaptchaAltchaConfig extends AbstractBundleConfig
 {
-    protected const string REDIS_CONNECTION_KEY = 'CAPTCHA_ALTCHA_REDIS';
+    /**
+     * Specification:
+     * - Memory-hard key derivation of the proof-of-work; needs the `sodium` PHP extension.
+     *
+     * @api
+     */
+    public const string KEY_DERIVATION_ALGORITHM_ARGON2ID = 'ARGON2ID';
+
+    /**
+     * Specification:
+     * - CPU-bound key derivation of the proof-of-work, bundled with the ALTCHA widget.
+     *
+     * @api
+     */
+    public const string KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 = 'PBKDF2/SHA-256';
 
     protected const string DEFAULT_HMAC_SECRET = '';
 
+    protected const int HMAC_SECRET_MINIMUM_LENGTH = 32;
+
+    protected const string KEY_SIGNATURE_SECRET_LABEL = 'altcha-key-signature';
+
+    protected const string KEY_SIGNATURE_SECRET_HASH_ALGORITHM = 'sha256';
+
+    protected const string DEFAULT_KEY_DERIVATION_ALGORITHM = self::KEY_DERIVATION_ALGORITHM_ARGON2ID;
+
     /**
-     * Solving takes about `1.5 × cost²` PBKDF2-SHA256 iterations because the counter range grows with the cost. Measured
-     * on one core of the Spryker CLI container: about 1.8 s at 1000, about 45 s at 5000 (the library's README example).
-     * The widget spreads the work over web workers, so a mid-range phone stays in the same order of magnitude.
+     * @var array<string, int>
      */
-    protected const int DEFAULT_COST = 1000;
+    protected const array DEFAULT_COSTS = [
+        self::KEY_DERIVATION_ALGORITHM_ARGON2ID => 2,
+        self::KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 => 1000,
+    ];
 
-    protected const int DEFAULT_CHALLENGE_TTL = 1200;
+    /**
+     * One `ARGON2ID` derivation with 2 iterations and 16 MiB takes about 18 ms on one core of the Spryker CLI container;
+     * the server pays it once per created challenge.
+     */
+    protected const int DEFAULT_MEMORY_COST = 16384;
 
-    protected const int COUNTER_RANGE_UPPER_BOUND_COST_MULTIPLIER = 2;
+    /**
+     * @var array<string, int>
+     */
+    protected const array DEFAULT_MINIMUM_COUNTERS = [
+        self::KEY_DERIVATION_ALGORITHM_ARGON2ID => 20,
+        self::KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 => 1000,
+    ];
 
-    protected const string DEFAULT_REDIS_SCHEME = 'tcp';
+    protected const int COUNTER_RANGE_UPPER_BOUND_MULTIPLIER = 2;
+
+    protected const int DEFAULT_CHALLENGE_TTL = 300;
+
+    protected const int MAXIMUM_PAYLOAD_LENGTH = 4096;
 
     /**
      * Specification:
@@ -45,20 +80,73 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     /**
      * Specification:
-     * - Returns the PBKDF2 iteration count of one key derivation from `CaptchaAltchaConstants::COST`, `1000` by default.
-     * - A client solves a challenge with about `counter × cost` iterations, i.e. about `1.5 × cost²` with the default counter range, see {@link getCounterRange()}.
+     * - Returns the minimum length in bytes of the HMAC secret, `32` by default.
+     * - A shorter secret counts as not configured: challenges are neither created nor accepted (fail closed).
+     *
+     * @api
+     */
+    public function getHmacSecretMinimumLength(): int
+    {
+        return static::HMAC_SECRET_MINIMUM_LENGTH;
+    }
+
+    /**
+     * Specification:
+     * - Returns the secret that signs the derived key of a challenge, so a solution is verified without deriving the key again.
+     * - Derives it from the HMAC secret; returns an empty string when the HMAC secret is empty.
+     *
+     * @api
+     */
+    public function getHmacKeySignatureSecret(): string
+    {
+        $hmacSecret = $this->getHmacSecret();
+
+        if ($hmacSecret === '') {
+            return '';
+        }
+
+        return hash_hmac(static::KEY_SIGNATURE_SECRET_HASH_ALGORITHM, static::KEY_SIGNATURE_SECRET_LABEL, $hmacSecret);
+    }
+
+    /**
+     * Specification:
+     * - Returns the key derivation algorithm from `CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM`, `ARGON2ID` by default.
+     *
+     * @api
+     */
+    public function getKeyDerivationAlgorithm(): string
+    {
+        return (string)$this->get(CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM, static::DEFAULT_KEY_DERIVATION_ALGORITHM);
+    }
+
+    /**
+     * Specification:
+     * - Returns the iteration count of one key derivation from `CaptchaAltchaConstants::COST`.
+     * - Returns `2` for `ARGON2ID` and `1000` for `PBKDF2/SHA-256` by default.
      *
      * @api
      */
     public function getCost(): int
     {
-        return (int)$this->get(CaptchaAltchaConstants::COST, static::DEFAULT_COST);
+        return (int)$this->get(CaptchaAltchaConstants::COST, static::DEFAULT_COSTS[$this->getKeyDerivationAlgorithm()] ?? 0);
+    }
+
+    /**
+     * Specification:
+     * - Returns the memory of one `ARGON2ID` key derivation in KiB from `CaptchaAltchaConstants::MEMORY_COST`, `16384` (16 MiB) by default.
+     *
+     * @api
+     */
+    public function getMemoryCost(): int
+    {
+        return (int)$this->get(CaptchaAltchaConstants::MEMORY_COST, static::DEFAULT_MEMORY_COST);
     }
 
     /**
      * Specification:
      * - Returns the inclusive range `[minimum, maximum]` the secret counter of a challenge is drawn from.
-     * - Returns `[cost, 2 × cost]` by default.
+     * - Takes the minimum from `CaptchaAltchaConstants::MINIMUM_COUNTER`: `20` for `ARGON2ID` and `1000` for `PBKDF2/SHA-256` by default.
+     * - Returns `[minimum, 2 × minimum]`.
      *
      * @api
      *
@@ -66,14 +154,17 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public function getCounterRange(): array
     {
-        $cost = $this->getCost();
+        $minimumCounter = (int)$this->get(
+            CaptchaAltchaConstants::MINIMUM_COUNTER,
+            static::DEFAULT_MINIMUM_COUNTERS[$this->getKeyDerivationAlgorithm()] ?? 0,
+        );
 
-        return [$cost, $cost * static::COUNTER_RANGE_UPPER_BOUND_COST_MULTIPLIER];
+        return [$minimumCounter, $minimumCounter * static::COUNTER_RANGE_UPPER_BOUND_MULTIPLIER];
     }
 
     /**
      * Specification:
-     * - Returns the lifetime of a challenge in seconds from `CaptchaAltchaConstants::CHALLENGE_TTL`, `1200` by default.
+     * - Returns the lifetime of a challenge in seconds from `CaptchaAltchaConstants::CHALLENGE_TTL`, `300` by default.
      *
      * @api
      */
@@ -84,54 +175,13 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     /**
      * Specification:
-     * - Returns the key of the Redis connection that stores spent challenges.
+     * - Returns the maximum length in bytes of a submitted payload, `4096` by default.
+     * - A longer payload is rejected as invalid before it is decoded.
      *
      * @api
      */
-    public function getRedisConnectionKey(): string
+    public function getMaximumPayloadLength(): int
     {
-        return static::REDIS_CONNECTION_KEY;
-    }
-
-    /**
-     * Specification:
-     * - Returns the configuration of the Redis connection that stores spent challenges, from the `CaptchaAltchaConstants::REDIS_*` constants.
-     *
-     * @api
-     */
-    public function getRedisConnectionConfiguration(): RedisConfigurationTransfer
-    {
-        return (new RedisConfigurationTransfer())
-            ->setDataSourceNames($this->getDataSourceNames())
-            ->setConnectionCredentials($this->getConnectionCredentials())
-            ->setClientOptions($this->getConnectionOptions());
-    }
-
-    /**
-     * @return array<string>
-     */
-    protected function getDataSourceNames(): array
-    {
-        return $this->get(CaptchaAltchaConstants::REDIS_DATA_SOURCE_NAMES, []);
-    }
-
-    protected function getConnectionCredentials(): RedisCredentialsTransfer
-    {
-        return (new RedisCredentialsTransfer())
-            ->setScheme($this->get(CaptchaAltchaConstants::REDIS_SCHEME, static::DEFAULT_REDIS_SCHEME))
-            ->setHost($this->get(CaptchaAltchaConstants::REDIS_HOST))
-            ->setPort($this->get(CaptchaAltchaConstants::REDIS_PORT))
-            ->setUsername($this->get(CaptchaAltchaConstants::REDIS_USER, false))
-            ->setDatabase($this->get(CaptchaAltchaConstants::REDIS_DATABASE))
-            ->setPassword($this->get(CaptchaAltchaConstants::REDIS_PASSWORD, false))
-            ->setIsPersistent($this->get(CaptchaAltchaConstants::REDIS_PERSISTENT_CONNECTION, false));
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function getConnectionOptions(): array
-    {
-        return $this->get(CaptchaAltchaConstants::REDIS_CONNECTION_OPTIONS, []);
+        return static::MAXIMUM_PAYLOAD_LENGTH;
     }
 }
