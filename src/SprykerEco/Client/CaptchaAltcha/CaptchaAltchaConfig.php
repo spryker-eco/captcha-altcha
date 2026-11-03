@@ -14,7 +14,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 {
     /**
      * Specification:
-     * - Memory-hard key derivation of the proof-of-work; needs the `sodium` PHP extension.
+     * - Memory-hard key derivation of the proof-of-work, needs the `sodium` PHP extension.
      *
      * @api
      */
@@ -93,7 +93,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
     /**
      * Specification:
      * - Returns the secret that signs the derived key of a challenge, so a solution is verified without deriving the key again.
-     * - Derives it from the HMAC secret; returns an empty string when the HMAC secret is empty.
+     * - Derives it from the HMAC secret, returns an empty string when the HMAC secret is empty.
      *
      * @api
      */
