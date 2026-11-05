@@ -14,16 +14,6 @@ interface CaptchaAltchaConstants
 {
     /**
      * Specification:
-     * - Defines the secret that signs (HMAC) ALTCHA challenges.
-     * - Required, at least 32 bytes long: without it, or with a shorter one, challenges are neither created nor accepted (fail closed).
-     * - Provide it from an environment variable, never hard-code it.
-     *
-     * @api
-     */
-    public const string HMAC_SECRET = 'CAPTCHA_ALTCHA:HMAC_SECRET';
-
-    /**
-     * Specification:
      * - Defines the key derivation algorithm of the proof-of-work: `ARGON2ID` or `PBKDF2/SHA-256`.
      * - `ARGON2ID` is memory-hard and resists GPU solvers; it needs the `sodium` PHP extension.
      *

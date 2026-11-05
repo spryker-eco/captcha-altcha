@@ -25,10 +25,10 @@ use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
  * @group Client
  * @group CaptchaAltcha
  * @group Verifier
- * @group AltchaVerifierTest
+ * @group LocalAltchaVerifierTest
  * Add your own group annotations below this line
  */
-class AltchaVerifierTest extends Unit
+class LocalAltchaVerifierTest extends Unit
 {
     protected const string GLOSSARY_KEY_INVALID = 'captcha.error.invalid';
 
@@ -388,7 +388,7 @@ class AltchaVerifierTest extends Unit
 
     protected function createAltchaVerifier(): AltchaVerifierInterface
     {
-        return $this->tester->createCaptchaAltchaFactory()->createAltchaVerifier();
+        return $this->tester->createCaptchaAltchaFactory()->createLocalAltchaVerifier();
     }
 
     protected function createChallenge(string $context): Challenge

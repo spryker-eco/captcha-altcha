@@ -1,0 +1,9 @@
+Integrations,Integrations
+"Third-party integrations configuration.","Third-party integrations configuration."
+ALTCHA,ALTCHA
+"ALTCHA proof-of-work CAPTCHA of the login forms. The application creates and verifies the challenges itself, without a third-party service.","ALTCHA proof-of-work CAPTCHA of the login forms. The application creates and verifies the challenges itself, without a third-party service."
+Credentials,Credentials
+"The secret that signs the ALTCHA challenges. Every environment needs its own random secret.","The secret that signs the ALTCHA challenges. Every environment needs its own random secret."
+"HMAC Secret","HMAC Secret"
+"Signs the ALTCHA challenges. Use at least 32 random characters, for example the output of ""openssl rand -hex 32"". Without it, every login that requires a CAPTCHA is rejected. Stored encrypted.","Signs the ALTCHA challenges. Use at least 32 random characters, for example the output of ""openssl rand -hex 32"". Without it, every login that requires a CAPTCHA is rejected. Stored encrypted."
+"Must be at least 32 characters long.","Must be at least 32 characters long."

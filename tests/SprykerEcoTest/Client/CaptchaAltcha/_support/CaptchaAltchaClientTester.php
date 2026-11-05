@@ -21,7 +21,11 @@ use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
+use Spryker\Client\ZedRequest\ZedRequestClientInterface;
+use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaClient;
+use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaClientInterface;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
+use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaDependencyProvider;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaFactory;
 use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
@@ -83,16 +87,43 @@ class CaptchaAltchaClientTester extends Actor
 
     public function createCaptchaAltchaFactory(): CaptchaAltchaFactory
     {
-        return new CaptchaAltchaFactory();
+        /** @var \SprykerEco\Client\CaptchaAltcha\CaptchaAltchaFactory $captchaAltchaFactory */
+        $captchaAltchaFactory = $this->getFactory();
+
+        return $captchaAltchaFactory;
     }
 
+    public function createPlugin(): AltchaCaptchaProviderPlugin
+    {
+        $altchaCaptchaProviderPlugin = new AltchaCaptchaProviderPlugin();
+        $altchaCaptchaProviderPlugin->setFactory($this->getFactory());
+
+        return $altchaCaptchaProviderPlugin;
+    }
+
+    public function createClient(): CaptchaAltchaClientInterface
+    {
+        return (new CaptchaAltchaClient())->setFactory($this->getFactory());
+    }
+
+    /**
+     * The HMAC secret is a Back Office setting: the tests replace the configuration read, every other value is
+     * environment configuration. The application provides the configuration service unless a test says otherwise.
+     */
     public function haveAltchaConfiguration(string $hmacSecret = self::HMAC_SECRET, int $challengeTtl = self::CHALLENGE_TTL): void
     {
-        $this->setConfig(CaptchaAltchaConstants::HMAC_SECRET, $hmacSecret);
+        $this->mockConfigMethod('getHmacSecret', $hmacSecret);
+        $this->setDependency(CaptchaAltchaDependencyProvider::IS_CONFIGURATION_SERVICE_PROVIDED, true);
         $this->setConfig(CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM, CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256);
         $this->setConfig(CaptchaAltchaConstants::COST, static::COST);
         $this->setConfig(CaptchaAltchaConstants::MINIMUM_COUNTER, static::MINIMUM_COUNTER);
         $this->setConfig(CaptchaAltchaConstants::CHALLENGE_TTL, $challengeTtl);
+    }
+
+    public function haveZedRequestClient(ZedRequestClientInterface $zedRequestClient, bool $isConfigurationServiceProvided): void
+    {
+        $this->setDependency(CaptchaAltchaDependencyProvider::CLIENT_ZED_REQUEST, $zedRequestClient);
+        $this->setDependency(CaptchaAltchaDependencyProvider::IS_CONFIGURATION_SERVICE_PROVIDED, $isConfigurationServiceProvided);
     }
 
     public function haveArgon2idConfiguration(): void
@@ -106,14 +137,17 @@ class CaptchaAltchaClientTester extends Actor
 
     public function createChallengeThroughPlugin(string $context): CaptchaChallengeResponseTransfer
     {
-        return (new AltchaCaptchaProviderPlugin())->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context));
+        return $this->createPlugin()->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context));
     }
 
     public function verifyThroughPlugin(string $payload, string $context): CaptchaVerificationResponseTransfer
     {
-        return (new AltchaCaptchaProviderPlugin())->verify(
-            (new CaptchaVerificationRequestTransfer())->setPayload($payload)->setContext($context),
-        );
+        return $this->createPlugin()->verify($this->createVerificationRequest($payload, $context));
+    }
+
+    public function createVerificationRequest(string $payload, string $context): CaptchaVerificationRequestTransfer
+    {
+        return (new CaptchaVerificationRequestTransfer())->setPayload($payload)->setContext($context);
     }
 
     public function getChallengeFromResponse(CaptchaChallengeResponseTransfer $captchaChallengeResponseTransfer): Challenge

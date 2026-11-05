@@ -22,10 +22,10 @@ use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
  * @group Client
  * @group CaptchaAltcha
  * @group ChallengeCreator
- * @group AltchaChallengeCreatorTest
+ * @group LocalAltchaChallengeCreatorTest
  * Add your own group annotations below this line
  */
-class AltchaChallengeCreatorTest extends Unit
+class LocalAltchaChallengeCreatorTest extends Unit
 {
     protected const string EXPECTED_TAG_NAME = 'altcha-widget';
 
@@ -42,6 +42,8 @@ class AltchaChallengeCreatorTest extends Unit
     protected const string GLOSSARY_KEY_UNAVAILABLE = 'captcha.error.unavailable';
 
     protected const int SOLVED_CHALLENGE_COUNT = 5;
+
+    protected const int SERVED_UNTIL_OFFSET = 120;
 
     protected CaptchaAltchaClientTester $tester;
 
@@ -117,6 +119,21 @@ class AltchaChallengeCreatorTest extends Unit
         }
     }
 
+    /**
+     * A challenge created ahead of time must stay solvable for its full lifetime after the last moment it is handed out.
+     */
+    public function testExpiresChallengeItsLifetimeAfterServedUntil(): void
+    {
+        // Arrange
+        $servedUntil = time() + static::SERVED_UNTIL_OFFSET;
+
+        // Act
+        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER, $servedUntil));
+
+        // Assert
+        $this->assertSame($servedUntil + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
+    }
+
     public function testUsesArgon2idWithConfiguredCostAndMemory(): void
     {
         // Arrange
@@ -144,10 +161,13 @@ class AltchaChallengeCreatorTest extends Unit
         $this->assertNotEmpty($challenge->parameters->keySignature);
     }
 
-    public function testFailsClosedAndLogsErrorWithoutHmacSecret(): void
+    /**
+     * @dataProvider provideUnusableHmacSecrets
+     */
+    public function testFailsClosedAndLogsErrorWithUnusableHmacSecret(string $hmacSecret): void
     {
         // Arrange
-        $this->tester->haveAltchaConfiguration('');
+        $this->tester->haveAltchaConfiguration($hmacSecret);
         $loggerMock = $this->createMock(LoggerInterface::class);
         $loggerMock->expects($this->once())->method('error');
         $this->tester->mockFactoryMethod('getLogger', $loggerMock);
@@ -163,10 +183,21 @@ class AltchaChallengeCreatorTest extends Unit
         $this->assertSame(static::GLOSSARY_KEY_UNAVAILABLE, $captchaChallengeResponseTransfer->getMessages()->offsetGet(0)->getValue());
     }
 
-    protected function createChallenge(string $context): CaptchaChallengeResponseTransfer
+    /**
+     * @return array<string, array<string>>
+     */
+    public function provideUnusableHmacSecrets(): array
+    {
+        return [
+            'not configured' => [''],
+            'shorter than 32 bytes' => [CaptchaAltchaClientTester::TOO_SHORT_HMAC_SECRET],
+        ];
+    }
+
+    protected function createChallenge(string $context, ?int $servedUntil = null): CaptchaChallengeResponseTransfer
     {
         return $this->tester->createCaptchaAltchaFactory()
-            ->createAltchaChallengeCreator()
-            ->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context));
+            ->createLocalAltchaChallengeCreator()
+            ->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context)->setServedUntil($servedUntil));
     }
 }
