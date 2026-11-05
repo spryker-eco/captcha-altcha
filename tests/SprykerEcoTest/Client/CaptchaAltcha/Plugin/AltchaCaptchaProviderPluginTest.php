@@ -9,11 +9,15 @@ namespace SprykerEcoTest\Client\CaptchaAltcha\Plugin;
 
 use Codeception\Test\Unit;
 use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
+use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
+use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
+use Psr\Log\LoggerInterface;
 use Spryker\Client\Captcha\CaptchaClientInterface;
 use Spryker\Client\Captcha\CaptchaDependencyProvider;
+use Spryker\Client\ZedRequest\ZedRequestClientInterface;
 use Spryker\Shared\Captcha\CaptchaConstants;
-use SprykerEco\Client\CaptchaAltcha\Plugin\Captcha\AltchaCaptchaProviderPlugin;
+use Spryker\Shared\Kernel\Transfer\TransferInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
 /**
@@ -31,6 +35,12 @@ class AltchaCaptchaProviderPluginTest extends Unit
     protected const string CONNECTION_KEY = 'CAPTCHA_REDIS';
 
     protected const string SPENT_KEY_PATTERN = 'captcha:spent:%s';
+
+    protected const string ZED_CREATE_CAPTCHA_CHALLENGE_URL = '/captcha-altcha/gateway/create-captcha-challenge';
+
+    protected const string ZED_VERIFY_CAPTCHA_PAYLOAD_URL = '/captcha-altcha/gateway/verify-captcha-payload';
+
+    protected const string PAYLOAD_VERIFIED_BY_ZED = 'payload-verified-by-zed';
 
     protected CaptchaAltchaClientTester $tester;
 
@@ -131,10 +141,105 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $this->assertFalse($captchaVerificationResponseTransfer->getIsValid());
     }
 
+    public function testCreatesAndVerifiesInProcessWhereConfigurationServiceIsProvided(): void
+    {
+        // Arrange
+        $zedRequestClientMock = $this->createMock(ZedRequestClientInterface::class);
+        $zedRequestClientMock->expects($this->never())->method('call');
+        $this->tester->haveZedRequestClient($zedRequestClientMock, true);
+        $payload = $this->tester->haveSolvedPayload(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->tester->verifyThroughPlugin($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+
+        // Assert
+        $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
+    }
+
+    /**
+     * The local secret is deliberately empty: the Storefront cannot read the secret setting, so Zed signs the challenge.
+     *
+     * @dataProvider provideApplicationsWithoutConfigurationService
+     */
+    public function testCreatesChallengeThroughZedGatewayWhereConfigurationServiceIsMissing(bool $isZedApplication, int $expectedWarningCount): void
+    {
+        // Arrange
+        $this->tester->haveAltchaConfiguration('');
+        $this->tester->mockConfigMethod('isZedApplication', $isZedApplication);
+        $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())
+            ->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)
+            ->setServedUntil(time());
+        $expectedCaptchaChallengeResponseTransfer = (new CaptchaChallengeResponseTransfer())->setIsSuccessful(true);
+        $this->haveZedRequestClientAnswering(static::ZED_CREATE_CAPTCHA_CHALLENGE_URL, $captchaChallengeRequestTransfer, $expectedCaptchaChallengeResponseTransfer);
+        $this->haveLoggerExpectingWarnings($expectedWarningCount);
+
+        // Act
+        $captchaChallengeResponseTransfer = $this->tester->createPlugin()->createChallenge($captchaChallengeRequestTransfer);
+
+        // Assert
+        $this->assertSame($expectedCaptchaChallengeResponseTransfer, $captchaChallengeResponseTransfer);
+    }
+
+    /**
+     * The local secret is deliberately empty: the Storefront cannot read the secret setting, so Zed verifies the payload.
+     *
+     * @dataProvider provideApplicationsWithoutConfigurationService
+     */
+    public function testVerifiesPayloadThroughZedGatewayWhereConfigurationServiceIsMissing(bool $isZedApplication, int $expectedWarningCount): void
+    {
+        // Arrange
+        $this->tester->haveAltchaConfiguration('');
+        $this->tester->mockConfigMethod('isZedApplication', $isZedApplication);
+        $captchaVerificationRequestTransfer = $this->tester->createVerificationRequest(static::PAYLOAD_VERIFIED_BY_ZED, CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+        $expectedCaptchaVerificationResponseTransfer = (new CaptchaVerificationResponseTransfer())->setIsValid(true);
+        $this->haveZedRequestClientAnswering(static::ZED_VERIFY_CAPTCHA_PAYLOAD_URL, $captchaVerificationRequestTransfer, $expectedCaptchaVerificationResponseTransfer);
+        $this->haveLoggerExpectingWarnings($expectedWarningCount);
+
+        // Act
+        $captchaVerificationResponseTransfer = $this->tester->createPlugin()->verify($captchaVerificationRequestTransfer);
+
+        // Assert
+        $this->assertSame($expectedCaptchaVerificationResponseTransfer, $captchaVerificationResponseTransfer);
+    }
+
+    /**
+     * @return array<string, array<mixed>>
+     */
+    public function provideApplicationsWithoutConfigurationService(): array
+    {
+        return [
+            'Storefront' => [false, 0],
+            'Zed application without ConfigurationApplicationPlugin' => [true, 1],
+        ];
+    }
+
+    protected function haveZedRequestClientAnswering(string $url, TransferInterface $requestTransfer, TransferInterface $responseTransfer): void
+    {
+        $zedRequestClientMock = $this->createMock(ZedRequestClientInterface::class);
+        $zedRequestClientMock->expects($this->once())
+            ->method('call')
+            ->with($url, $requestTransfer)
+            ->willReturn($responseTransfer);
+        $this->tester->haveZedRequestClient($zedRequestClientMock, false);
+    }
+
+    /**
+     * No error is expected: the Zed gateway path never reads the local secret.
+     */
+    protected function haveLoggerExpectingWarnings(int $expectedWarningCount): void
+    {
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->exactly($expectedWarningCount))
+            ->method('warning')
+            ->with($this->stringContains('ConfigurationApplicationPlugin'));
+        $loggerMock->expects($this->never())->method('error');
+        $this->tester->mockFactoryMethod('getLogger', $loggerMock);
+    }
+
     protected function haveCaptchaClientWithAltchaProvider(): CaptchaClientInterface
     {
         $this->tester->setConfig(CaptchaConstants::IS_CAPTCHA_ENABLED, true);
-        $this->tester->setDependency(CaptchaDependencyProvider::PLUGIN_CAPTCHA_PROVIDER, new AltchaCaptchaProviderPlugin());
+        $this->tester->setDependency(CaptchaDependencyProvider::PLUGIN_CAPTCHA_PROVIDER, $this->tester->createPlugin());
 
         return $this->tester->getLocator()->captcha()->client();
     }

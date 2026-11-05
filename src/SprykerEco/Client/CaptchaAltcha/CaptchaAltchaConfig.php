@@ -28,6 +28,8 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public const string KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 = 'PBKDF2/SHA-256';
 
+    protected const string CONFIGURATION_KEY_HMAC_SECRET = 'integrations:altcha:credentials:hmac_secret';
+
     protected const string DEFAULT_HMAC_SECRET = '';
 
     protected const int HMAC_SECRET_MINIMUM_LENGTH = 32;
@@ -67,15 +69,21 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
     protected const int MAXIMUM_PAYLOAD_LENGTH = 4096;
 
     /**
+     * @var list<string>
+     */
+    protected const array ZED_APPLICATIONS = ['ZED', 'MERCHANT_PORTAL'];
+
+    /**
      * Specification:
-     * - Returns the secret that signs (HMAC) ALTCHA challenges from `CaptchaAltchaConstants::HMAC_SECRET`.
-     * - Returns an empty string by default: without a secret, challenges are neither created nor accepted (fail closed).
+     * - Returns the secret that signs (HMAC) ALTCHA challenges from the Back Office configuration (`integrations:altcha:credentials:hmac_secret`), an empty string when it is not configured.
+     * - The secret is a secret setting: it is published to no key-value store, so only an application that registers `ConfigurationApplicationPlugin` reads it; elsewhere it reads as an empty string.
+     * - Without a secret, challenges are neither created nor accepted (fail closed).
      *
      * @api
      */
     public function getHmacSecret(): string
     {
-        return (string)$this->get(CaptchaAltchaConstants::HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
+        return (string)$this->getModuleConfig(static::CONFIGURATION_KEY_HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
     }
 
     /**
@@ -183,5 +191,17 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
     public function getMaximumPayloadLength(): int
     {
         return static::MAXIMUM_PAYLOAD_LENGTH;
+    }
+
+    /**
+     * Specification:
+     * - Returns `true` in the Back Office, Backend Gateway, Backend API and Merchant Portal applications.
+     * - These applications create and verify challenges in-process, so they need `ConfigurationApplicationPlugin` to read the HMAC secret.
+     *
+     * @api
+     */
+    public function isZedApplication(): bool
+    {
+        return defined('APPLICATION') && in_array(constant('APPLICATION'), static::ZED_APPLICATIONS, true);
     }
 }

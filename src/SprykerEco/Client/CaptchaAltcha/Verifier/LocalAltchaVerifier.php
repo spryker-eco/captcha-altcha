@@ -20,7 +20,7 @@ use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreatorInterface;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretCheckerInterface;
 
-class AltchaVerifier implements AltchaVerifierInterface
+class LocalAltchaVerifier implements AltchaVerifierInterface
 {
     public function __construct(
         protected Altcha $altcha,

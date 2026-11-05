@@ -21,7 +21,9 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
 {
     /**
      * {@inheritDoc}
-     * - Creates an ALTCHA proof-of-work challenge with the key derivation of `CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM` (Argon2id by default), signed with `CaptchaAltchaConstants::HMAC_SECRET`; the signed data carries the request context.
+     * - Creates an ALTCHA proof-of-work challenge with the key derivation of `CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM` (Argon2id by default), signed with the HMAC secret of the Back Office configuration (`integrations:altcha:credentials:hmac_secret`); the signed data carries the request context.
+     * - The challenge expires `CaptchaAltchaConstants::CHALLENGE_TTL` seconds after `CaptchaChallengeRequestTransfer.servedUntil` when it is set, otherwise after the current time.
+     * - Creates the challenge in-process where the application provides the configuration service (`ConfigurationApplicationPlugin`), otherwise through the Zed gateway, which can read the secret. A Zed application without the configuration service logs a warning.
      * - Returns the challenge inline as the `challenge` attribute of an `altcha-widget` element.
      * - Returns `isSuccessful=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured or shorter than 32 bytes.
      *
@@ -39,6 +41,7 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
      * - Expects the base64-encoded payload the `altcha-widget` posts.
      * - Rejects a payload longer than 4096 bytes, without an expiry, or whose signature, solution or signed context does not match, or whose challenge has expired.
      * - Returns the challenge signature as `replayKey` and the challenge expiry as `replayExpiresAt` for a valid payload, so the Captcha client accepts it once.
+     * - Verifies the payload in-process where the application provides the configuration service (`ConfigurationApplicationPlugin`), otherwise through the Zed gateway, which can read the secret. A Zed application without the configuration service logs a warning.
      * - Returns `isValid=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured or shorter than 32 bytes.
      *
      * @api
@@ -59,5 +62,17 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
     public function getResponseFieldName(): ?string
     {
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     * - Returns `true`: an ALTCHA challenge costs one key derivation to create and its payload is accepted once, so the Captcha
+     *   client may create challenges ahead of time.
+     *
+     * @api
+     */
+    public function isChallengePoolSupported(): bool
+    {
+        return true;
     }
 }

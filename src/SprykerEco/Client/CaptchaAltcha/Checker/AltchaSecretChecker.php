@@ -12,9 +12,9 @@ use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 
 class AltchaSecretChecker implements AltchaSecretCheckerInterface
 {
-    protected const string LOG_MESSAGE_HMAC_SECRET_MISSING = 'The ALTCHA HMAC secret (CaptchaAltchaConstants::HMAC_SECRET) is not configured: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected.';
+    protected const string LOG_MESSAGE_HMAC_SECRET_MISSING = 'The ALTCHA HMAC secret (Back Office setting integrations:altcha:credentials:hmac_secret) is empty in this application: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected. Generate it with the captcha-altcha:hmac-secret:generate console command or set it in the Back Office; it is readable only where ConfigurationApplicationPlugin is registered.';
 
-    protected const string LOG_MESSAGE_HMAC_SECRET_TOO_SHORT = 'The ALTCHA HMAC secret (CaptchaAltchaConstants::HMAC_SECRET) is shorter than %d bytes, so it can be brute-forced from a signed challenge: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected.';
+    protected const string LOG_MESSAGE_HMAC_SECRET_TOO_SHORT = 'The ALTCHA HMAC secret (Back Office setting integrations:altcha:credentials:hmac_secret) is shorter than %d bytes, so it can be brute-forced from a signed challenge: CAPTCHA challenges are neither created nor accepted, so every login that requires a CAPTCHA is rejected.';
 
     public function __construct(
         protected CaptchaAltchaConfig $captchaAltchaConfig,
