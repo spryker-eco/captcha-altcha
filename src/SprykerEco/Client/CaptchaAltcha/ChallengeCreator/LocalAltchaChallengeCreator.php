@@ -54,13 +54,8 @@ class LocalAltchaChallengeCreator implements AltchaChallengeCreatorInterface
             cost: $this->captchaAltchaConfig->getCost(),
             counter: random_int($minimumCounter, $maximumCounter),
             memoryCost: $this->captchaAltchaConfig->getMemoryCost(),
-            expiresAt: $this->calculateExpiresAt($captchaChallengeRequestTransfer->getServedUntil()),
+            expiresAt: time() + $this->captchaAltchaConfig->getChallengeTtl(),
             data: [static::CHALLENGE_DATA_KEY_CONTEXT => (string)$captchaChallengeRequestTransfer->getContext()],
         );
-    }
-
-    protected function calculateExpiresAt(?int $servedUntil): int
-    {
-        return ($servedUntil ?? time()) + $this->captchaAltchaConfig->getChallengeTtl();
     }
 }

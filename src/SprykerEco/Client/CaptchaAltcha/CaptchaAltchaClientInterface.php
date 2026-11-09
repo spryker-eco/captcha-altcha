@@ -18,7 +18,7 @@ interface CaptchaAltchaClientInterface
      * Specification:
      * - Creates an ALTCHA proof-of-work challenge in the current process, signed with the HMAC secret of the Back Office configuration; the signed data carries `CaptchaChallengeRequestTransfer.context`.
      * - Uses the key derivation algorithm, cost, memory cost and counter of the environment configuration (`CaptchaAltchaConstants`).
-     * - The challenge expires `CaptchaAltchaConstants::CHALLENGE_TTL` seconds after `CaptchaChallengeRequestTransfer.servedUntil` when it is set, otherwise after the current time.
+     * - The challenge expires `CaptchaAltchaConstants::CHALLENGE_TTL` seconds after it is created.
      * - Returns `isSuccessful=true` with the challenge inline as the `challenge` attribute of an `altcha-widget` element.
      * - Returns `isSuccessful=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is empty or shorter than 32 bytes.
      * - The HMAC secret can be read only in an application that registers `ConfigurationApplicationPlugin`.

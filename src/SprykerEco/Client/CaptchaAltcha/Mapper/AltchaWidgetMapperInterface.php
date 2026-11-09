@@ -13,4 +13,8 @@ use Generated\Shared\Transfer\CaptchaWidgetTransfer;
 interface AltchaWidgetMapperInterface
 {
     public function mapChallengeToCaptchaWidgetTransfer(Challenge $challenge, CaptchaWidgetTransfer $captchaWidgetTransfer): CaptchaWidgetTransfer;
+
+    public function mapChallengeUrlToCaptchaWidgetTransfer(string $challengeUrl, CaptchaWidgetTransfer $captchaWidgetTransfer): CaptchaWidgetTransfer;
+
+    public function findChallengeData(CaptchaWidgetTransfer $captchaWidgetTransfer): ?string;
 }
