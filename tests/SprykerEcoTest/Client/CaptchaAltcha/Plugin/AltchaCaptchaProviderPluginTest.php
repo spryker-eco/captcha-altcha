@@ -136,7 +136,7 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $this->assertFalse($captchaVerificationResponseTransfer->getIsValid());
     }
 
-    public function testCreatesAWidgetThatFetchesItsChallengeFromTheChallengeUrlWhenTheUserEntersTheForm(): void
+    public function testCreatesAWidgetThatFetchesItsChallengeFromTheChallengeUrlWhenTheUserTicksTheCheckbox(): void
     {
         // Arrange
         $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())
@@ -150,7 +150,7 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $this->assertTrue($captchaChallengeResponseTransfer->getIsSuccessful());
         $this->assertSame('altcha-widget', $captchaChallengeResponseTransfer->getWidgetOrFail()->getTagName());
         $this->assertSame(
-            [CaptchaAltchaClientTester::WIDGET_ATTRIBUTE_CHALLENGE => static::CHALLENGE_URL, 'auto' => 'onfocus'],
+            [CaptchaAltchaClientTester::WIDGET_ATTRIBUTE_CHALLENGE => static::CHALLENGE_URL, 'auto' => 'off'],
             $captchaChallengeResponseTransfer->getWidgetOrFail()->getAttributes(),
         );
     }

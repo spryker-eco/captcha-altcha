@@ -69,7 +69,7 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
     /**
      * {@inheritDoc}
      * - Returns an `altcha-widget` whose `challenge` attribute is the challenge URL and whose `auto` attribute is
-     *   `CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`, `onfocus` by default.
+     *   `CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`, `off` by default.
      *
      * @api
      */

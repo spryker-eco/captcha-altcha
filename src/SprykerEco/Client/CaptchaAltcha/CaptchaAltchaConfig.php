@@ -66,7 +66,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     protected const int DEFAULT_CHALLENGE_TTL = 300;
 
-    protected const string WIDGET_AUTO_ON_FOCUS = 'onfocus';
+    protected const string WIDGET_AUTO_OFF = 'off';
 
     protected const int MAXIMUM_PAYLOAD_LENGTH = 4096;
 
@@ -185,15 +185,16 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     /**
      * Specification:
-     * - Returns the `auto` attribute of a widget that fetches its challenge from the challenge URL: `onfocus` starts fetching and
-     *   solving when the user enters the form, so the check is usually done before the user submits it.
-     * - The other values of the widget are `off` (on a click of the checkbox), `onload` and `onsubmit`.
+     * - Returns the `auto` attribute of a widget that fetches its challenge from the challenge URL: `off` fetches and solves the
+     *   challenge when the user ticks the checkbox; a challenge is created only for that click.
+     * - The other values of the widget are `onfocus` (when the user enters the form), `onsubmit` (when the user submits the form, which
+     *   is submitted once the challenge is solved) and `onload`; with them the widget ticks the checkbox itself.
      *
      * @api
      */
     public function getChallengeUrlWidgetAutoMode(): string
     {
-        return static::WIDGET_AUTO_ON_FOCUS;
+        return static::WIDGET_AUTO_OFF;
     }
 
     /**

@@ -120,7 +120,8 @@ The secret can be read only in an application that registers
 - The **Storefront** creates and verifies challenges through the Zed gateway
   (`/captcha-altcha/gateway/create-captcha-challenge`, `/captcha-altcha/gateway/verify-captcha-payload`), served by
   `CaptchaAltchaFacade`. A challenge costs one Zed request, which the Backend Gateway signs; with the challenge URL
-  widget below, that request happens when the user enters the login form, not while the page renders.
+  widget below, that request happens when the user submits the login form, once per login attempt, not while the page
+  renders.
 
 A challenge is bound to the context of its login form, so a solution is accepted only by the same form:
 `storefront_customer_login`, `storefront_agent_login`, `backoffice_user_login`, `merchant_portal_user_login` and
@@ -142,18 +143,25 @@ endpoint of the application that renders the login form), the plugin returns the
 while the page renders:
 
 ```html
-<altcha-widget challenge="<challenge URL>" auto="onfocus"></altcha-widget>
+<altcha-widget challenge="<challenge URL>" auto="onsubmit"></altcha-widget>
 ```
 
-- The widget fetches and solves its challenge when the user enters the form, usually before the user submits it.
-- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `onfocus` by
-  default; the widget also supports `off`, `onload` and `onsubmit`.
+- The user does not tick the checkbox: a click on the login button holds the submit, the widget fetches its challenge
+  from the challenge URL and solves it (about 1 s), then submits the form. That is one challenge per login attempt; a
+  page render and typing create none. The user can still tick the checkbox before submitting.
+- When the challenge endpoint answers 429 or 503, the widget shows an error instead of submitting the form.
+- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `onsubmit`
+  by default; the widget also supports `off` (on a click of the checkbox), `onfocus` (when the user enters the form) and
+  `onload`.
 - For each request to the challenge endpoint, the `Captcha` client calls the plugin's `createChallengeData()`, which
   creates the challenge and returns its JSON document. On the Storefront it creates the challenge through the Zed
   gateway, because the secret is readable only in Zed.
 - A challenge expires `CHALLENGE_TTL` seconds after it is created.
-- The Merchant Portal moves the form fields into its Angular form after the widget mounted, so the entry script
-  `Zed/CaptchaAltcha/Presentation/Components/entry.ts` starts the widget when the user enters its form.
+- The Merchant Portal moves the form fields into its Angular form after the widget mounted, so the widget's own form
+  listeners are never attached. The entry script `Zed/CaptchaAltcha/Presentation/Components/entry.ts` therefore binds
+  the widget's `onsubmit` (and `onfocus`) start to the document: it holds a submit until the widget is verified, then
+  submits again; a submit while the widget is verifying is held; after an error or expiry the next submit verifies
+  again.
 - A login form without a challenge URL renders the widget with a challenge created while the page renders.
 
 The challenge endpoints, their rate limit and their wiring (the Storefront route provider plugin, anonymous access to
