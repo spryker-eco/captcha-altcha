@@ -7,19 +7,15 @@
 
 namespace SprykerEcoTest\Client\CaptchaAltcha\Plugin;
 
-use AltchaOrg\Altcha\Challenge;
 use Codeception\Test\Unit;
-use Generated\Shared\Transfer\CaptchaChallengeDataRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
-use Generated\Shared\Transfer\CaptchaWidgetTransfer;
 use Psr\Log\LoggerInterface;
 use Spryker\Client\Captcha\CaptchaClientInterface;
 use Spryker\Client\Captcha\CaptchaDependencyProvider;
 use Spryker\Client\ZedRequest\ZedRequestClientInterface;
-use Spryker\Shared\Captcha\CaptchaConfig;
 use Spryker\Shared\Captcha\CaptchaConstants;
 use Spryker\Shared\Kernel\Transfer\TransferInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
@@ -45,12 +41,6 @@ class AltchaCaptchaProviderPluginTest extends Unit
     protected const string ZED_VERIFY_CAPTCHA_PAYLOAD_URL = '/captcha-altcha/gateway/verify-captcha-payload';
 
     protected const string PAYLOAD_VERIFIED_BY_ZED = 'payload-verified-by-zed';
-
-    protected const string CHALLENGE_URL = '/captcha/challenge?context=customer';
-
-    protected const string CHALLENGE_SIGNED_BY_ZED = '{"parameters":{"algorithm":"PBKDF2/SHA-256"},"signature":"signed-by-zed"}';
-
-    protected const string IP = '192.0.2.10';
 
     protected CaptchaAltchaClientTester $tester;
 
@@ -136,83 +126,6 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $this->assertFalse($captchaVerificationResponseTransfer->getIsValid());
     }
 
-    public function testCreatesAWidgetThatFetchesItsChallengeFromTheChallengeUrlWhenTheUserEntersTheForm(): void
-    {
-        // Arrange
-        $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())
-            ->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)
-            ->setChallengeUrl(static::CHALLENGE_URL);
-
-        // Act
-        $captchaChallengeResponseTransfer = $this->tester->createPlugin()->createChallengeUrlWidget($captchaChallengeRequestTransfer);
-
-        // Assert
-        $this->assertTrue($captchaChallengeResponseTransfer->getIsSuccessful());
-        $this->assertSame('altcha-widget', $captchaChallengeResponseTransfer->getWidgetOrFail()->getTagName());
-        $this->assertSame(
-            [CaptchaAltchaClientTester::WIDGET_ATTRIBUTE_CHALLENGE => static::CHALLENGE_URL, 'auto' => 'onfocus'],
-            $captchaChallengeResponseTransfer->getWidgetOrFail()->getAttributes(),
-        );
-    }
-
-    public function testCaptchaClientServesAChallengeDataThatVerifiesForItsContext(): void
-    {
-        // Arrange
-        $captchaClient = $this->haveCaptchaClientWithAltchaProvider();
-
-        // Act
-        $captchaChallengeDataResponseTransfer = $captchaClient->createChallengeData(
-            (new CaptchaChallengeDataRequestTransfer())->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)->setIp(static::IP),
-        );
-
-        // Assert
-        $this->assertTrue($captchaChallengeDataResponseTransfer->getIsSuccessful());
-        $challenge = Challenge::fromArray(json_decode((string)$captchaChallengeDataResponseTransfer->getChallengeData(), true, 512, JSON_THROW_ON_ERROR));
-        $payload = $this->tester->createPayload($challenge, $this->tester->solveChallenge($challenge));
-        $this->assertTrue($captchaClient->verifyCaptcha($this->createVerificationRequest($payload, CaptchaAltchaClientTester::CONTEXT_CUSTOMER))->getIsValid());
-    }
-
-    public function testAnswersUnavailableChallengeDataWithoutHmacSecret(): void
-    {
-        // Arrange
-        $this->tester->haveAltchaConfiguration('');
-
-        // Act
-        $captchaChallengeDataResponseTransfer = $this->tester->createPlugin()->createChallengeData(
-            (new CaptchaChallengeRequestTransfer())->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER),
-        );
-
-        // Assert
-        $this->assertFalse($captchaChallengeDataResponseTransfer->getIsSuccessful());
-        $this->assertNull($captchaChallengeDataResponseTransfer->getChallengeData());
-        $this->assertSame(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE, $captchaChallengeDataResponseTransfer->getMessages()->offsetGet(0)->getValue());
-    }
-
-    /**
-     * The local secret is deliberately empty: the Storefront cannot read the secret setting, so Zed signs the challenge.
-     */
-    public function testCreatesTheChallengeDataThroughZedGatewayWhereConfigurationServiceIsMissing(): void
-    {
-        // Arrange
-        $this->tester->haveAltchaConfiguration('');
-        $this->tester->mockConfigMethod('isZedApplication', false);
-        $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
-        $this->haveZedRequestClientAnswering(
-            static::ZED_CREATE_CAPTCHA_CHALLENGE_URL,
-            $captchaChallengeRequestTransfer,
-            (new CaptchaChallengeResponseTransfer())
-                ->setIsSuccessful(true)
-                ->setWidget((new CaptchaWidgetTransfer())->setAttributes([CaptchaAltchaClientTester::WIDGET_ATTRIBUTE_CHALLENGE => static::CHALLENGE_SIGNED_BY_ZED])),
-        );
-
-        // Act
-        $captchaChallengeDataResponseTransfer = $this->tester->createPlugin()->createChallengeData($captchaChallengeRequestTransfer);
-
-        // Assert
-        $this->assertTrue($captchaChallengeDataResponseTransfer->getIsSuccessful());
-        $this->assertSame(static::CHALLENGE_SIGNED_BY_ZED, $captchaChallengeDataResponseTransfer->getChallengeData());
-    }
-
     public function testFailsClosedWithoutHmacSecret(): void
     {
         // Arrange
@@ -253,7 +166,9 @@ class AltchaCaptchaProviderPluginTest extends Unit
         // Arrange
         $this->tester->haveAltchaConfiguration('');
         $this->tester->mockConfigMethod('isZedApplication', $isZedApplication);
-        $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER);
+        $captchaChallengeRequestTransfer = (new CaptchaChallengeRequestTransfer())
+            ->setContext(CaptchaAltchaClientTester::CONTEXT_CUSTOMER)
+            ->setServedUntil(time());
         $expectedCaptchaChallengeResponseTransfer = (new CaptchaChallengeResponseTransfer())->setIsSuccessful(true);
         $this->haveZedRequestClientAnswering(static::ZED_CREATE_CAPTCHA_CHALLENGE_URL, $captchaChallengeRequestTransfer, $expectedCaptchaChallengeResponseTransfer);
         $this->haveLoggerExpectingWarnings($expectedWarningCount);

@@ -7,24 +7,22 @@
 
 namespace SprykerEco\Client\CaptchaAltcha\Plugin\Captcha;
 
-use Generated\Shared\Transfer\CaptchaChallengeDataResponseTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeRequestTransfer;
 use Generated\Shared\Transfer\CaptchaChallengeResponseTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationRequestTransfer;
 use Generated\Shared\Transfer\CaptchaVerificationResponseTransfer;
-use Spryker\Client\CaptchaExtension\Dependency\Plugin\CaptchaChallengeUrlProviderPluginInterface;
 use Spryker\Client\CaptchaExtension\Dependency\Plugin\CaptchaProviderPluginInterface;
 use Spryker\Client\Kernel\AbstractPlugin;
 
 /**
  * @method \SprykerEco\Client\CaptchaAltcha\CaptchaAltchaFactory getFactory()
  */
-class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProviderPluginInterface, CaptchaChallengeUrlProviderPluginInterface
+class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProviderPluginInterface
 {
     /**
      * {@inheritDoc}
      * - Creates an ALTCHA proof-of-work challenge with the key derivation of `CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM` (Argon2id by default), signed with the HMAC secret of the Back Office configuration (`integrations:altcha:credentials:hmac_secret`); the signed data carries the request context.
-     * - The challenge expires `CaptchaAltchaConstants::CHALLENGE_TTL` seconds after it is created.
+     * - The challenge expires `CaptchaAltchaConstants::CHALLENGE_TTL` seconds after `CaptchaChallengeRequestTransfer.servedUntil` when it is set, otherwise after the current time.
      * - Creates the challenge in-process where the application provides the configuration service (`ConfigurationApplicationPlugin`), otherwise through the Zed gateway, which can read the secret. A Zed application without the configuration service logs a warning.
      * - Returns the challenge inline as the `challenge` attribute of an `altcha-widget` element.
      * - Returns `isSuccessful=false` with `captcha.error.unavailable` and logs an error when the HMAC secret is not configured or shorter than 32 bytes.
@@ -68,29 +66,13 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
 
     /**
      * {@inheritDoc}
-     * - Returns an `altcha-widget` whose `challenge` attribute is the challenge URL and whose `auto` attribute is
-     *   `CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`, `onfocus` by default.
+     * - Returns `true`: an ALTCHA challenge costs one key derivation to create and its payload is accepted once, so the Captcha
+     *   client may create challenges ahead of time.
      *
      * @api
      */
-    public function createChallengeUrlWidget(CaptchaChallengeRequestTransfer $captchaChallengeRequestTransfer): CaptchaChallengeResponseTransfer
+    public function isChallengePoolSupported(): bool
     {
-        return $this->getFactory()
-            ->createAltchaChallengeUrlWidgetCreator()
-            ->createChallengeUrlWidget($captchaChallengeRequestTransfer);
-    }
-
-    /**
-     * {@inheritDoc}
-     * - Creates the challenge like `createChallenge()`: in-process where the configuration service is provided, through the Zed
-     *   gateway otherwise.
-     *
-     * @api
-     */
-    public function createChallengeData(CaptchaChallengeRequestTransfer $captchaChallengeRequestTransfer): CaptchaChallengeDataResponseTransfer
-    {
-        return $this->getFactory()
-            ->createAltchaChallengeDataCreator()
-            ->createChallengeData($captchaChallengeRequestTransfer);
+        return true;
     }
 }

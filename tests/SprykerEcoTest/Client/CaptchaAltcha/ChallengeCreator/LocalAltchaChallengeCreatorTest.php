@@ -43,6 +43,8 @@ class LocalAltchaChallengeCreatorTest extends Unit
 
     protected const int SOLVED_CHALLENGE_COUNT = 5;
 
+    protected const int SERVED_UNTIL_OFFSET = 120;
+
     protected CaptchaAltchaClientTester $tester;
 
     protected function _before(): void
@@ -117,17 +119,19 @@ class LocalAltchaChallengeCreatorTest extends Unit
         }
     }
 
-    public function testExpiresChallengeItsLifetimeAfterItIsCreated(): void
+    /**
+     * A challenge created ahead of time must stay solvable for its full lifetime after the last moment it is handed out.
+     */
+    public function testExpiresChallengeItsLifetimeAfterServedUntil(): void
     {
         // Arrange
-        $createdAt = time();
+        $servedUntil = time() + static::SERVED_UNTIL_OFFSET;
 
         // Act
-        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER, $servedUntil));
 
         // Assert
-        $this->assertGreaterThanOrEqual($createdAt + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
-        $this->assertLessThanOrEqual(time() + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
+        $this->assertSame($servedUntil + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
     }
 
     public function testUsesArgon2idWithConfiguredCostAndMemory(): void
@@ -190,10 +194,10 @@ class LocalAltchaChallengeCreatorTest extends Unit
         ];
     }
 
-    protected function createChallenge(string $context): CaptchaChallengeResponseTransfer
+    protected function createChallenge(string $context, ?int $servedUntil = null): CaptchaChallengeResponseTransfer
     {
         return $this->tester->createCaptchaAltchaFactory()
             ->createLocalAltchaChallengeCreator()
-            ->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context));
+            ->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context)->setServedUntil($servedUntil));
     }
 }

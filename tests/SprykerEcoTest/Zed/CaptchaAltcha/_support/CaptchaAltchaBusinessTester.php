@@ -85,9 +85,11 @@ class CaptchaAltchaBusinessTester extends Actor
         $this->setDependency(CaptchaAltchaDependencyProvider::CLIENT_CAPTCHA_ALTCHA, $captchaAltchaClient);
     }
 
-    public function createChallengeRequest(): CaptchaChallengeRequestTransfer
+    public function createChallengeRequest(?int $servedUntil = null): CaptchaChallengeRequestTransfer
     {
-        return (new CaptchaChallengeRequestTransfer())->setContext(static::CONTEXT_CUSTOMER);
+        return (new CaptchaChallengeRequestTransfer())
+            ->setContext(static::CONTEXT_CUSTOMER)
+            ->setServedUntil($servedUntil);
     }
 
     public function getChallengeFromResponse(CaptchaChallengeResponseTransfer $captchaChallengeResponseTransfer): Challenge
