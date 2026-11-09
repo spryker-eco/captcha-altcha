@@ -8,6 +8,7 @@
 namespace SprykerEco\Client\CaptchaAltcha;
 
 use Spryker\Client\Kernel\AbstractBundleConfig;
+use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig as SharedCaptchaAltchaConfig;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 
 class CaptchaAltchaConfig extends AbstractBundleConfig
@@ -28,11 +29,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public const string KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 = 'PBKDF2/SHA-256';
 
-    protected const string CONFIGURATION_KEY_HMAC_SECRET = 'integrations:altcha:credentials:hmac_secret';
-
     protected const string DEFAULT_HMAC_SECRET = '';
-
-    protected const int HMAC_SECRET_MINIMUM_LENGTH = 32;
 
     protected const string KEY_SIGNATURE_SECRET_LABEL = 'altcha-key-signature';
 
@@ -85,7 +82,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public function getHmacSecret(): string
     {
-        return (string)$this->getModuleConfig(static::CONFIGURATION_KEY_HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
+        return (string)$this->getModuleConfig(SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
     }
 
     /**
@@ -97,7 +94,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public function getHmacSecretMinimumLength(): int
     {
-        return static::HMAC_SECRET_MINIMUM_LENGTH;
+        return SharedCaptchaAltchaConfig::HMAC_SECRET_MINIMUM_LENGTH;
     }
 
     /**

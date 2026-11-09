@@ -8,14 +8,10 @@
 namespace SprykerEco\Zed\CaptchaAltcha;
 
 use Spryker\Zed\Kernel\AbstractBundleConfig;
+use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig as SharedCaptchaAltchaConfig;
 
 class CaptchaAltchaConfig extends AbstractBundleConfig
 {
-    /**
-     * @uses \SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET
-     */
-    protected const string CONFIGURATION_KEY_HMAC_SECRET = 'integrations:altcha:credentials:hmac_secret';
-
     /**
      * @uses \Spryker\Shared\Configuration\ConfigurationConstants::SCOPE_GLOBAL
      */
@@ -31,7 +27,19 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public function getHmacSecretConfigurationKey(): string
     {
-        return static::CONFIGURATION_KEY_HMAC_SECRET;
+        return SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET;
+    }
+
+    /**
+     * Specification:
+     * - Returns the minimum length in bytes of the HMAC secret, `32` by default.
+     * - A stored secret shorter than this counts as missing, so the generator replaces it.
+     *
+     * @api
+     */
+    public function getHmacSecretMinimumLength(): int
+    {
+        return SharedCaptchaAltchaConfig::HMAC_SECRET_MINIMUM_LENGTH;
     }
 
     /**

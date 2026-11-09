@@ -24,7 +24,7 @@ class CaptchaAltchaHmacSecretGenerateConsole extends Console
 {
     protected const string COMMAND_NAME = 'captcha-altcha:hmac-secret:generate';
 
-    protected const string COMMAND_DESCRIPTION = 'Generates a random ALTCHA HMAC secret in the Back Office configuration when none is stored. Keeps a stored secret.';
+    protected const string COMMAND_DESCRIPTION = 'Generates a random ALTCHA HMAC secret in the Back Office configuration when none, or one shorter than the minimum length, is stored. Keeps a stored secret of the minimum length or longer.';
 
     protected const string MESSAGE_GENERATED = 'The ALTCHA HMAC secret was generated.';
 

@@ -17,6 +17,7 @@ use Spryker\Client\Configuration\ConfigurationDependencyProvider;
 use Spryker\Shared\Configuration\Reader\AbstractConfigurationValueResolver;
 use Spryker\Zed\Configuration\Business\ConfigurationFacadeInterface;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
+use SprykerEco\Zed\CaptchaAltcha\Business\CaptchaAltchaBusinessFactory;
 use SprykerEco\Zed\CaptchaAltcha\Communication\Console\CaptchaAltchaHmacSecretGenerateConsole;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -46,6 +47,7 @@ class CaptchaAltchaCommunicationTester extends Actor
 
     public function haveNoStoredHmacSecret(): void
     {
+        $this->resetResolvedConfigurationValueCache();
         $this->getConfigurationFacade()->saveConfigurationValues(
             (new ConfigurationValueCollectionRequestTransfer())->addDeletionKey(
                 (new ConfigurationValueDeletionTransfer())
@@ -57,6 +59,7 @@ class CaptchaAltchaCommunicationTester extends Actor
 
     public function haveStoredHmacSecret(string $hmacSecret): void
     {
+        $this->resetResolvedConfigurationValueCache();
         $configurationValueCollectionResponseTransfer = $this->getConfigurationFacade()->saveConfigurationValues(
             (new ConfigurationValueCollectionRequestTransfer())->addConfigurationValue(
                 (new ConfigurationValueTransfer())
@@ -92,12 +95,29 @@ class CaptchaAltchaCommunicationTester extends Actor
         return (new CaptchaAltchaConfig())->getHmacSecret();
     }
 
-    public function runHmacSecretGenerateConsole(): CommandTester
+    public function runHmacSecretGenerateConsole(?CaptchaAltchaBusinessFactory $captchaAltchaBusinessFactory = null): CommandTester
     {
-        $commandTester = new CommandTester(new CaptchaAltchaHmacSecretGenerateConsole());
+        $captchaAltchaHmacSecretGenerateConsole = new CaptchaAltchaHmacSecretGenerateConsole();
+
+        if ($captchaAltchaBusinessFactory !== null) {
+            $captchaAltchaHmacSecretGenerateConsole->setBusinessFactory($captchaAltchaBusinessFactory);
+        }
+
+        $commandTester = new CommandTester($captchaAltchaHmacSecretGenerateConsole);
         $commandTester->execute([]);
 
         return $commandTester;
+    }
+
+    /**
+     * The console creates its business factory itself, so a mocked config reaches it only through an injected factory.
+     */
+    public function createBusinessFactoryWithGeneratedHmacSecretByteLength(int $generatedHmacSecretByteLength): CaptchaAltchaBusinessFactory
+    {
+        $captchaAltchaBusinessFactory = new CaptchaAltchaBusinessFactory();
+        $captchaAltchaBusinessFactory->setConfig($this->mockConfigMethod('getGeneratedHmacSecretByteLength', $generatedHmacSecretByteLength));
+
+        return $captchaAltchaBusinessFactory;
     }
 
     protected function getConfigurationFacade(): ConfigurationFacadeInterface

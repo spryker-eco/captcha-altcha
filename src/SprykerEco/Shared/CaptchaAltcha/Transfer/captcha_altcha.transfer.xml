@@ -65,6 +65,11 @@
         <property name="message" type="string"/>
     </transfer>
 
+    <transfer name="ConfigurationValueRequest">
+        <property name="key" type="string"/>
+        <property name="scope" type="string"/>
+    </transfer>
+
     <transfer name="ConfigurationSettingValuesCriteria" strict="true">
         <property name="settingKeys" type="array" singular="settingKey"/>
         <property name="scope" type="string"/>

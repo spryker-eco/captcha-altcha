@@ -78,8 +78,11 @@ secret from the `captcha-altcha:hmac-secret:generate` console command:
 
 - When no secret is stored, it generates 32 random bytes, stores them hex-encoded (64 characters) at the global scope
   and prints that the secret was generated.
-- When a secret is stored, it keeps it and prints that it was kept. It never replaces a stored secret, so it is safe
-  to run on every deployment.
+- When the stored secret is shorter than 32 characters, which the provider rejects, it replaces it the same way.
+- When a secret of 32 characters or more is stored, it keeps it and prints that it was kept, so it is safe to run on
+  every deployment.
+- The key of the setting and the minimum length come from `SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig`, which
+  the generator and the provider share.
 - It never prints or logs the secret, and it exits with an error code and the reason when the secret cannot be saved.
 
 Register the command in `Pyz\Zed\Console\ConsoleDependencyProvider::getConsoleCommands()`:
@@ -104,7 +107,7 @@ signed with the previous secret are rejected afterwards, so a visitor who had a 
 Without a secret, or with a shorter one, the provider fails closed and logs an error: no challenge is created, and a
 login that requires a CAPTCHA is rejected. With the CAPTCHA mode of the `Captcha` module set to `always`, this blocks
 every login form, the Back Office login included, so the secret cannot be set there. The install step above prevents
-this. To recover an environment without a secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
+this. To recover an environment without a valid secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
 off for the time being with `$config[CaptchaConstants::IS_CAPTCHA_ENABLED] = false;`.
 
 ### Where challenges are created and verified
@@ -120,8 +123,7 @@ The secret can be read only in an application that registers
 - The **Storefront** creates and verifies challenges through the Zed gateway
   (`/captcha-altcha/gateway/create-captcha-challenge`, `/captcha-altcha/gateway/verify-captcha-payload`), served by
   `CaptchaAltchaFacade`. A challenge costs one Zed request, which the Backend Gateway signs; with the challenge URL
-  widget below, that request happens when the user submits the login form, once per login attempt, not while the page
-  renders.
+  widget below, that request happens when the user ticks the checkbox, once per tick, not while the page renders.
 
 A challenge is bound to the context of its login form, so a solution is accepted only by the same form:
 `storefront_customer_login`, `storefront_agent_login`, `backoffice_user_login`, `merchant_portal_user_login` and
@@ -143,25 +145,32 @@ endpoint of the application that renders the login form), the plugin returns the
 while the page renders:
 
 ```html
-<altcha-widget challenge="<challenge URL>" auto="onsubmit"></altcha-widget>
+<altcha-widget challenge="<challenge URL>" auto="off"></altcha-widget>
 ```
 
-- The user does not tick the checkbox: a click on the login button holds the submit, the widget fetches its challenge
-  from the challenge URL and solves it (about 1 s), then submits the form. That is one challenge per login attempt; a
-  page render and typing create none. The user can still tick the checkbox before submitting.
-- When the challenge endpoint answers 429 or 503, the widget shows an error instead of submitting the form.
-- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `onsubmit`
-  by default; the widget also supports `off` (on a click of the checkbox), `onfocus` (when the user enters the form) and
-  `onload`.
+- When the user ticks the checkbox, the widget fetches its challenge from the challenge URL and solves it (about 1 s),
+  and the checkbox shows as ticked; the user then submits the form. That is one challenge per tick; a page render and
+  typing create none.
+- When the challenge endpoint answers 429 or 503, the widget shows "Verification failed. Try again later." and the
+  checkbox stays unticked.
+- The checkbox is a required field. A form that uses the browser's form validation, like the Back Office login form,
+  asks the user to tick it and sends nothing. The Storefront login forms (`novalidate`) and the Merchant Portal login
+  forms (submitted by Angular) send the form, and the `Captcha` module rejects it with "Please complete the security
+  check."
+- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `off` by
+  default; the widget also supports `onfocus` (when the user enters the form), `onsubmit` (when the user submits the
+  form, which the widget submits once the challenge is solved) and `onload`. With these values the widget ticks the
+  checkbox itself.
 - For each request to the challenge endpoint, the `Captcha` client calls the plugin's `createChallengeData()`, which
   creates the challenge and returns its JSON document. On the Storefront it creates the challenge through the Zed
   gateway, because the secret is readable only in Zed.
 - A challenge expires `CHALLENGE_TTL` seconds after it is created.
 - The Merchant Portal moves the form fields into its Angular form after the widget mounted, so the widget's own form
-  listeners are never attached. The entry script `Zed/CaptchaAltcha/Presentation/Components/entry.ts` therefore binds
-  the widget's `onsubmit` (and `onfocus`) start to the document: it holds a submit until the widget is verified, then
-  submits again; a submit while the widget is verifying is held; after an error or expiry the next submit verifies
-  again.
+  listeners are never attached. For the `onsubmit` and `onfocus` values, the entry script
+  `Zed/CaptchaAltcha/Presentation/Components/entry.ts` therefore binds the start of the widget to the document: with
+  `onsubmit` it holds a submit until the widget is verified, then submits again; a submit while the widget is verifying
+  is held; after an error or expiry the next submit verifies again. With the default `off`, the user starts the widget
+  with its checkbox, which needs no form listener.
 - A login form without a challenge URL renders the widget with a challenge created while the page renders.
 
 The challenge endpoints, their rate limit and their wiring (the Storefront route provider plugin, anonymous access to

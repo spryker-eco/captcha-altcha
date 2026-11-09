@@ -7,9 +7,9 @@
 
 namespace SprykerEco\Zed\CaptchaAltcha\Business\Generator;
 
-use Generated\Shared\Transfer\ConfigurationSettingValuesCriteriaTransfer;
 use Generated\Shared\Transfer\ConfigurationValueCollectionRequestTransfer;
 use Generated\Shared\Transfer\ConfigurationValueCollectionResponseTransfer;
+use Generated\Shared\Transfer\ConfigurationValueRequestTransfer;
 use Generated\Shared\Transfer\ConfigurationValueTransfer;
 use Spryker\Zed\Configuration\Business\ConfigurationFacadeInterface;
 use SprykerEco\Zed\CaptchaAltcha\CaptchaAltchaConfig;
@@ -24,7 +24,7 @@ class HmacSecretGenerator implements HmacSecretGeneratorInterface
 
     public function generateMissingHmacSecret(): ConfigurationValueCollectionResponseTransfer
     {
-        if ($this->hasStoredHmacSecret()) {
+        if ($this->hasUsableStoredHmacSecret()) {
             return (new ConfigurationValueCollectionResponseTransfer())
                 ->setIsSuccess(true)
                 ->setSavedCount(0);
@@ -40,16 +40,15 @@ class HmacSecretGenerator implements HmacSecretGeneratorInterface
         );
     }
 
-    protected function hasStoredHmacSecret(): bool
+    protected function hasUsableStoredHmacSecret(): bool
     {
-        $hmacSecretConfigurationKey = $this->captchaAltchaConfig->getHmacSecretConfigurationKey();
-
-        $configurationSettingValueCollectionTransfer = $this->configurationFacade->getConfigurationSettingValues(
-            (new ConfigurationSettingValuesCriteriaTransfer())
-                ->addSettingKey($hmacSecretConfigurationKey)
+        // The stored value is encrypted, so the decrypted secret is measured, with the rule of AltchaSecretChecker.
+        $storedHmacSecret = (string)$this->configurationFacade->getConfigurationValue(
+            (new ConfigurationValueRequestTransfer())
+                ->setKey($this->captchaAltchaConfig->getHmacSecretConfigurationKey())
                 ->setScope($this->captchaAltchaConfig->getHmacSecretConfigurationScope()),
         );
 
-        return (string)($configurationSettingValueCollectionTransfer->getDirectValues()[$hmacSecretConfigurationKey] ?? '') !== '';
+        return strlen($storedHmacSecret) >= $this->captchaAltchaConfig->getHmacSecretMinimumLength();
     }
 }
