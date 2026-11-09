@@ -17,6 +17,10 @@ use Spryker\Shared\Kernel\StrategyResolver;
 use Spryker\Shared\Kernel\StrategyResolverInterface;
 use Spryker\Shared\Log\LoggerTrait;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeCreatorInterface;
+use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeDataCreator;
+use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeDataCreatorInterface;
+use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeUrlWidgetCreator;
+use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\AltchaChallengeUrlWidgetCreatorInterface;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\LocalAltchaChallengeCreator;
 use SprykerEco\Client\CaptchaAltcha\ChallengeCreator\ZedAltchaChallengeCreator;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretChecker;
@@ -97,7 +101,17 @@ class CaptchaAltchaFactory extends AbstractFactory
 
     public function createAltchaWidgetMapper(): AltchaWidgetMapperInterface
     {
-        return new AltchaWidgetMapper();
+        return new AltchaWidgetMapper($this->getConfig());
+    }
+
+    public function createAltchaChallengeUrlWidgetCreator(): AltchaChallengeUrlWidgetCreatorInterface
+    {
+        return new AltchaChallengeUrlWidgetCreator($this->createAltchaWidgetMapper());
+    }
+
+    public function createAltchaChallengeDataCreator(): AltchaChallengeDataCreatorInterface
+    {
+        return new AltchaChallengeDataCreator($this->createAltchaChallengeCreator(), $this->createAltchaWidgetMapper());
     }
 
     public function createAltcha(): Altcha

@@ -62,7 +62,7 @@ settings above are optional and show their defaults.
 | `COST` | 2 (Argon2id), 1000 (PBKDF2) | Iterations of one key derivation. |
 | `MEMORY_COST` | 16384 | Memory of one Argon2id key derivation in KiB. |
 | `MINIMUM_COUNTER` | 20 (Argon2id), 1000 (PBKDF2) | The secret counter is drawn from `[minimum, 2 × minimum]`; the browser derives up to that many keys. |
-| `CHALLENGE_TTL` | 300 | Lifetime of a challenge in seconds. A challenge without an expiry is rejected. |
+| `CHALLENGE_TTL` | 300 | A challenge expires this many seconds after it is created. A challenge without an expiry is rejected. |
 
 ### HMAC secret
 
@@ -119,9 +119,8 @@ The secret can be read only in an application that registers
   the Zed gateway and logs a warning for every challenge and payload.
 - The **Storefront** creates and verifies challenges through the Zed gateway
   (`/captcha-altcha/gateway/create-captcha-challenge`, `/captcha-altcha/gateway/verify-captcha-payload`), served by
-  `CaptchaAltchaFacade`. A challenge costs one Zed request; the Captcha client may sign challenges ahead of time
-  (`isChallengePoolSupported()` returns `true`) so the login page needs none. A challenge signed ahead of time expires
-  `CHALLENGE_TTL` seconds after the end of the time it may be handed out (`CaptchaChallengeRequest.servedUntil`).
+  `CaptchaAltchaFacade`. A challenge costs one Zed request, which the Backend Gateway signs; with the challenge URL
+  widget below, that request happens when the user enters the login form, not while the page renders.
 
 A challenge is bound to the context of its login form, so a solution is accepted only by the same form:
 `storefront_customer_login`, `storefront_agent_login`, `backoffice_user_login`, `merchant_portal_user_login` and
@@ -134,6 +133,31 @@ challenge costs about 9 ms of CPU time and 16 MiB of memory on the server.
 Payloads longer than 4096 bytes are rejected before they are decoded. A valid payload returns its signature as the
 replay key; the `Captcha` module stores it in Redis (`captcha:spent:*`, until the challenge expires) and accepts the
 payload once.
+
+### Challenge URL widget
+
+`AltchaCaptchaProviderPlugin` implements `Spryker\Client\CaptchaExtension\Dependency\Plugin\CaptchaChallengeUrlProviderPluginInterface`
+next to `CaptchaProviderPluginInterface`. When the `Captcha` module passes a challenge URL (the rate-limited challenge
+endpoint of the application that renders the login form), the plugin returns the URL widget and creates no challenge
+while the page renders:
+
+```html
+<altcha-widget challenge="<challenge URL>" auto="onfocus"></altcha-widget>
+```
+
+- The widget fetches and solves its challenge when the user enters the form, usually before the user submits it.
+- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `onfocus` by
+  default; the widget also supports `off`, `onload` and `onsubmit`.
+- For each request to the challenge endpoint, the `Captcha` client calls the plugin's `createChallengeData()`, which
+  creates the challenge and returns its JSON document. On the Storefront it creates the challenge through the Zed
+  gateway, because the secret is readable only in Zed.
+- A challenge expires `CHALLENGE_TTL` seconds after it is created.
+- The Merchant Portal moves the form fields into its Angular form after the widget mounted, so the entry script
+  `Zed/CaptchaAltcha/Presentation/Components/entry.ts` starts the widget when the user enters its form.
+- A login form without a challenge URL renders the widget with a challenge created while the page renders.
+
+The challenge endpoints, their rate limit and their wiring (the Storefront route provider plugin, anonymous access to
+the Back Office and Merchant Portal endpoints) belong to the `Captcha` module.
 
 ## Wiring
 

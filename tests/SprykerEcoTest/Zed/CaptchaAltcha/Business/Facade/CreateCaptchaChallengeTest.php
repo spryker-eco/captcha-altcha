@@ -26,24 +26,22 @@ class CreateCaptchaChallengeTest extends Unit
 {
     protected const string CHALLENGE_DATA_KEY_CONTEXT = 'context';
 
-    protected const int SERVED_UNTIL_OFFSET = 120;
-
     protected CaptchaAltchaBusinessTester $tester;
 
     public function testSignsChallengeBoundToContextInZed(): void
     {
         // Arrange
         $this->tester->haveCaptchaAltchaClient(CaptchaAltchaBusinessTester::HMAC_SECRET);
-        $servedUntil = time() + static::SERVED_UNTIL_OFFSET;
+        $createdAt = time();
 
         // Act
-        $captchaChallengeResponseTransfer = $this->tester->getFacade()->createCaptchaChallenge($this->tester->createChallengeRequest($servedUntil));
+        $captchaChallengeResponseTransfer = $this->tester->getFacade()->createCaptchaChallenge($this->tester->createChallengeRequest());
 
         // Assert
         $this->assertTrue($captchaChallengeResponseTransfer->getIsSuccessful());
         $challenge = $this->tester->getChallengeFromResponse($captchaChallengeResponseTransfer);
         $this->assertSame([static::CHALLENGE_DATA_KEY_CONTEXT => CaptchaAltchaBusinessTester::CONTEXT_CUSTOMER], $challenge->parameters->data);
-        $this->assertSame($servedUntil + CaptchaAltchaBusinessTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
+        $this->assertGreaterThanOrEqual($createdAt + CaptchaAltchaBusinessTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
     }
 
     public function testAnswersUnavailableWhenHmacSecretIsNotReadable(): void

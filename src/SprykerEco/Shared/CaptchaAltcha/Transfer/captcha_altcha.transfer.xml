@@ -3,12 +3,18 @@
 
     <transfer name="CaptchaChallengeRequest" strict="true">
         <property name="context" type="string"/>
-        <property name="servedUntil" type="int" description="Unix time until which a challenge created ahead of time may still be handed out; the challenge expires its lifetime after it."/>
+        <property name="challengeUrl" type="string" description="URL the widget fetches its challenge from, for a provider that implements CaptchaChallengeUrlProviderPluginInterface."/>
     </transfer>
 
     <transfer name="CaptchaChallengeResponse" strict="true">
         <property name="isSuccessful" type="bool"/>
         <property name="widget" type="CaptchaWidget"/>
+        <property name="messages" type="Message[]" singular="message"/>
+    </transfer>
+
+    <transfer name="CaptchaChallengeDataResponse" strict="true">
+        <property name="isSuccessful" type="bool"/>
+        <property name="challengeData" type="string" description="JSON document of the challenge the widget fetches from the challenge URL."/>
         <property name="messages" type="Message[]" singular="message"/>
     </transfer>
 
