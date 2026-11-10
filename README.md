@@ -169,8 +169,9 @@ while the page renders:
   listeners are never attached. For the `onsubmit` and `onfocus` values, the entry script
   `Zed/CaptchaAltcha/Presentation/Components/entry.ts` therefore binds the start of the widget to the document: with
   `onsubmit` it holds a submit until the widget is verified, then submits again; a submit while the widget is verifying
-  is held; after an error or expiry the next submit verifies again. With the default `off`, the user starts the widget
-  with its checkbox, which needs no form listener.
+  is held; after an error or expiry the next submit verifies again. With `onfocus` it starts the widget when the focus
+  enters the form while the widget is unverified, failed or expired. A failed verification or submit is logged to the
+  browser console. With the default `off`, the user starts the widget with its checkbox, which needs no form listener.
 - A login form without a challenge URL renders the widget with a challenge created while the page renders.
 
 The challenge endpoints, their rate limit and their wiring (the Storefront route provider plugin, anonymous access to
