@@ -3,11 +3,18 @@
 
     <transfer name="CaptchaChallengeRequest" strict="true">
         <property name="context" type="string"/>
+        <property name="challengeUrl" type="string" description="URL the widget fetches its challenge from, for a provider that implements CaptchaChallengeUrlProviderPluginInterface."/>
     </transfer>
 
     <transfer name="CaptchaChallengeResponse" strict="true">
         <property name="isSuccessful" type="bool"/>
         <property name="widget" type="CaptchaWidget"/>
+        <property name="messages" type="Message[]" singular="message"/>
+    </transfer>
+
+    <transfer name="CaptchaChallengeDataResponse" strict="true">
+        <property name="isSuccessful" type="bool"/>
+        <property name="challengeData" type="string" description="JSON document of the challenge the widget fetches from the challenge URL."/>
         <property name="messages" type="Message[]" singular="message"/>
     </transfer>
 
@@ -36,6 +43,40 @@
     <transfer name="Message">
         <property name="value" type="string"/>
         <property name="parameters" type="array" singular="parameters"/>
+    </transfer>
+
+    <transfer name="ConfigurationValue" strict="true">
+        <property name="settingKey" type="string"/>
+        <property name="scope" type="string"/>
+        <property name="value" type="string"/>
+    </transfer>
+
+    <transfer name="ConfigurationValueCollectionRequest" strict="true">
+        <property name="configurationValues" type="ConfigurationValue[]" singular="configurationValue"/>
+    </transfer>
+
+    <transfer name="ConfigurationValueCollectionResponse" strict="true">
+        <property name="isSuccess" type="bool"/>
+        <property name="savedCount" type="int"/>
+        <property name="errors" type="ConfigurationError[]" singular="error"/>
+    </transfer>
+
+    <transfer name="ConfigurationError" strict="true">
+        <property name="message" type="string"/>
+    </transfer>
+
+    <transfer name="ConfigurationValueRequest">
+        <property name="key" type="string"/>
+        <property name="scope" type="string"/>
+    </transfer>
+
+    <transfer name="ConfigurationSettingValuesCriteria" strict="true">
+        <property name="settingKeys" type="array" singular="settingKey"/>
+        <property name="scope" type="string"/>
+    </transfer>
+
+    <transfer name="ConfigurationSettingValueCollection" strict="true">
+        <property name="directValues" type="array" singular="directValue"/>
     </transfer>
 
 </transfers>

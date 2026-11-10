@@ -1,6 +1,7 @@
 namespace: SprykerEcoTest
 include:
     - tests/SprykerEcoTest/Client/CaptchaAltcha
+    - tests/SprykerEcoTest/Zed/CaptchaAltcha
 paths:
     tests: tests
     output: tests/_output

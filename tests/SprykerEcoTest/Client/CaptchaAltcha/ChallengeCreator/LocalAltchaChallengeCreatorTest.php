@@ -22,10 +22,10 @@ use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
  * @group Client
  * @group CaptchaAltcha
  * @group ChallengeCreator
- * @group AltchaChallengeCreatorTest
+ * @group LocalAltchaChallengeCreatorTest
  * Add your own group annotations below this line
  */
-class AltchaChallengeCreatorTest extends Unit
+class LocalAltchaChallengeCreatorTest extends Unit
 {
     protected const string EXPECTED_TAG_NAME = 'altcha-widget';
 
@@ -117,6 +117,19 @@ class AltchaChallengeCreatorTest extends Unit
         }
     }
 
+    public function testExpiresChallengeItsLifetimeAfterItIsCreated(): void
+    {
+        // Arrange
+        $createdAt = time();
+
+        // Act
+        $challenge = $this->tester->getChallengeFromResponse($this->createChallenge(CaptchaAltchaClientTester::CONTEXT_CUSTOMER));
+
+        // Assert
+        $this->assertGreaterThanOrEqual($createdAt + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
+        $this->assertLessThanOrEqual(time() + CaptchaAltchaClientTester::CHALLENGE_TTL, $challenge->parameters->expiresAt);
+    }
+
     public function testUsesArgon2idWithConfiguredCostAndMemory(): void
     {
         // Arrange
@@ -144,10 +157,13 @@ class AltchaChallengeCreatorTest extends Unit
         $this->assertNotEmpty($challenge->parameters->keySignature);
     }
 
-    public function testFailsClosedAndLogsErrorWithoutHmacSecret(): void
+    /**
+     * @dataProvider provideUnusableHmacSecrets
+     */
+    public function testFailsClosedAndLogsErrorWithUnusableHmacSecret(string $hmacSecret): void
     {
         // Arrange
-        $this->tester->haveAltchaConfiguration('');
+        $this->tester->haveAltchaConfiguration($hmacSecret);
         $loggerMock = $this->createMock(LoggerInterface::class);
         $loggerMock->expects($this->once())->method('error');
         $this->tester->mockFactoryMethod('getLogger', $loggerMock);
@@ -163,10 +179,21 @@ class AltchaChallengeCreatorTest extends Unit
         $this->assertSame(static::GLOSSARY_KEY_UNAVAILABLE, $captchaChallengeResponseTransfer->getMessages()->offsetGet(0)->getValue());
     }
 
+    /**
+     * @return array<string, array<string>>
+     */
+    public function provideUnusableHmacSecrets(): array
+    {
+        return [
+            'not configured' => [''],
+            'shorter than 32 bytes' => [CaptchaAltchaClientTester::TOO_SHORT_HMAC_SECRET],
+        ];
+    }
+
     protected function createChallenge(string $context): CaptchaChallengeResponseTransfer
     {
         return $this->tester->createCaptchaAltchaFactory()
-            ->createAltchaChallengeCreator()
+            ->createLocalAltchaChallengeCreator()
             ->createChallenge((new CaptchaChallengeRequestTransfer())->setContext($context));
     }
 }

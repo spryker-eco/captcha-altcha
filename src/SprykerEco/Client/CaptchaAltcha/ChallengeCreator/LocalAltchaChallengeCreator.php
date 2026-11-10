@@ -19,7 +19,7 @@ use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Client\CaptchaAltcha\Checker\AltchaSecretCheckerInterface;
 use SprykerEco\Client\CaptchaAltcha\Mapper\AltchaWidgetMapperInterface;
 
-class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
+class LocalAltchaChallengeCreator implements AltchaChallengeCreatorInterface
 {
     public function __construct(
         protected Altcha $altcha,
@@ -38,16 +38,14 @@ class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
                 ->addMessage((new MessageTransfer())->setValue(CaptchaConfig::GLOSSARY_KEY_CAPTCHA_ERROR_UNAVAILABLE));
         }
 
-        $challenge = $this->altcha->createChallenge(
-            $this->createChallengeOptions((string)$captchaChallengeRequestTransfer->getContext()),
-        );
+        $challenge = $this->altcha->createChallenge($this->createChallengeOptions($captchaChallengeRequestTransfer));
 
         return (new CaptchaChallengeResponseTransfer())
             ->setIsSuccessful(true)
             ->setWidget($this->altchaWidgetMapper->mapChallengeToCaptchaWidgetTransfer($challenge, new CaptchaWidgetTransfer()));
     }
 
-    protected function createChallengeOptions(string $context): CreateChallengeOptions
+    protected function createChallengeOptions(CaptchaChallengeRequestTransfer $captchaChallengeRequestTransfer): CreateChallengeOptions
     {
         [$minimumCounter, $maximumCounter] = $this->captchaAltchaConfig->getCounterRange();
 
@@ -57,7 +55,7 @@ class AltchaChallengeCreator implements AltchaChallengeCreatorInterface
             counter: random_int($minimumCounter, $maximumCounter),
             memoryCost: $this->captchaAltchaConfig->getMemoryCost(),
             expiresAt: time() + $this->captchaAltchaConfig->getChallengeTtl(),
-            data: [static::CHALLENGE_DATA_KEY_CONTEXT => $context],
+            data: [static::CHALLENGE_DATA_KEY_CONTEXT => (string)$captchaChallengeRequestTransfer->getContext()],
         );
     }
 }

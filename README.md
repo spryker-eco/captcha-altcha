@@ -46,7 +46,6 @@ $config[CaptchaConstants::REDIS_USER] = getenv('SPRYKER_KEY_VALUE_USERNAME');
 $config[CaptchaConstants::REDIS_PASSWORD] = getenv('SPRYKER_KEY_VALUE_PASSWORD');
 $config[CaptchaConstants::REDIS_DATABASE] = 7;
 
-$config[CaptchaAltchaConstants::HMAC_SECRET] = getenv('SPRYKER_CAPTCHA_ALTCHA_HMAC_SECRET') ?: '';
 $config[CaptchaAltchaConstants::KEY_DERIVATION_ALGORITHM] = CaptchaAltchaConfig::KEY_DERIVATION_ALGORITHM_ARGON2ID;
 $config[CaptchaAltchaConstants::COST] = 2;               // Argon2id iterations per key derivation
 $config[CaptchaAltchaConstants::MEMORY_COST] = 16384;    // KiB per key derivation (16 MiB)
@@ -54,29 +53,128 @@ $config[CaptchaAltchaConstants::MINIMUM_COUNTER] = 20;   // the browser derives 
 $config[CaptchaAltchaConstants::CHALLENGE_TTL] = 300;    // seconds
 ```
 
-CAPTCHA is off by default (`CaptchaConstants::IS_CAPTCHA_ENABLED`); set it to `true` to enable the step-up. Only
-`HMAC_SECRET` is required; the other settings above show their defaults.
+CAPTCHA is off by default (`CaptchaConstants::IS_CAPTCHA_ENABLED`); set it to `true` to enable it. The environment
+settings above are optional and show their defaults.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `HMAC_SECRET` | none | Signs the challenges. Required, at least 32 bytes. |
 | `KEY_DERIVATION_ALGORITHM` | `ARGON2ID` | `ARGON2ID` (memory-hard, resists GPU solvers) or `PBKDF2/SHA-256`. |
 | `COST` | 2 (Argon2id), 1000 (PBKDF2) | Iterations of one key derivation. |
 | `MEMORY_COST` | 16384 | Memory of one Argon2id key derivation in KiB. |
 | `MINIMUM_COUNTER` | 20 (Argon2id), 1000 (PBKDF2) | The secret counter is drawn from `[minimum, 2 × minimum]`; the browser derives up to that many keys. |
-| `CHALLENGE_TTL` | 300 | Lifetime of a challenge in seconds. A challenge without an expiry is rejected. |
+| `CHALLENGE_TTL` | 300 | A challenge expires this many seconds after it is created. A challenge without an expiry is rejected. |
 
-Every environment that serves logins needs its own random secret of at least 32 bytes in
-`SPRYKER_CAPTCHA_ALTCHA_HMAC_SECRET` (for example `openssl rand -hex 32`). Without it, or with a shorter one, the
-provider fails closed: no challenge is created, and a login that requires a challenge is rejected.
+### HMAC secret
+
+The secret that signs the challenges is a secret setting of the Configuration module, on **Configuration →
+Integrations → ALTCHA** in the Back Office:
+
+| Setting | Key | Notes |
+|---|---|---|
+| HMAC Secret | `integrations:altcha:credentials:hmac_secret` | Required, at least 32 characters. Stored encrypted, never published to the key-value store. |
+
+`console configuration:sync` registers the setting; the install recipes run it. Every environment gets its own random
+secret from the `captcha-altcha:hmac-secret:generate` console command:
+
+- When no secret is stored, it generates 32 random bytes, stores them hex-encoded (64 characters) at the global scope
+  and prints that the secret was generated.
+- When the stored secret is shorter than 32 characters, which the provider rejects, it replaces it the same way.
+- When a secret of 32 characters or more is stored, it keeps it and prints that it was kept, so it is safe to run on
+  every deployment.
+- The key of the setting and the minimum length come from `SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig`, which
+  the generator and the provider share.
+- It never prints or logs the secret, and it exits with an error code and the reason when the secret cannot be saved.
+
+Register the command in `Pyz\Zed\Console\ConsoleDependencyProvider::getConsoleCommands()`:
+
+```php
+use SprykerEco\Zed\CaptchaAltcha\Communication\Console\CaptchaAltchaHmacSecretGenerateConsole;
+
+new CaptchaAltchaHmacSecretGenerateConsole(),
+```
+
+Run it in the install recipe after `configuration:sync` and the database initialization (`setup:init-db`), for example
+next to the step that initializes the database:
+
+```yaml
+captcha-altcha-hmac-secret-generate:
+    command: 'vendor/bin/console captcha-altcha:hmac-secret:generate'
+```
+
+An administrator can rotate the secret on **Configuration → Integrations → ALTCHA** in the Back Office. Challenges
+signed with the previous secret are rejected afterwards, so a visitor who had a login form open solves a new challenge.
+
+Without a secret, or with a shorter one, the provider fails closed and logs an error: no challenge is created, and a
+login that requires a CAPTCHA is rejected. With the CAPTCHA mode of the `Captcha` module set to `always`, this blocks
+every login form, the Back Office login included, so the secret cannot be set there. The install step above prevents
+this. To recover an environment without a valid secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
+off for the time being with `$config[CaptchaConstants::IS_CAPTCHA_ENABLED] = false;`.
+
+### Where challenges are created and verified
+
+The secret can be read only in an application that registers
+`Spryker\Zed\Configuration\Communication\Plugin\Application\ConfigurationApplicationPlugin`:
+
+- The **Back Office**, the **Backend Gateway**, the **Merchant Portal** and the Zed console create and verify challenges
+  in-process. The Merchant Portal needs the plugin in
+  `Pyz\Zed\MerchantPortalApplication\MerchantPortalApplicationDependencyProvider::getMerchantPortalApplicationPlugins()`;
+  the Back Office, the Backend Gateway and the console register it already. Without it, a Zed application goes through
+  the Zed gateway and logs a warning for every challenge and payload.
+- The **Storefront** creates and verifies challenges through the Zed gateway
+  (`/captcha-altcha/gateway/create-captcha-challenge`, `/captcha-altcha/gateway/verify-captcha-payload`), served by
+  `CaptchaAltchaFacade`. A challenge costs one Zed request, which the Backend Gateway signs; with the challenge URL
+  widget below, that request happens when the user ticks the checkbox, once per tick, not while the page renders.
+
+A challenge is bound to the context of its login form, so a solution is accepted only by the same form:
+`storefront_customer_login`, `storefront_agent_login`, `backoffice_user_login`, `merchant_portal_user_login` and
+`merchant_portal_agent_login`.
 
 The server derives one key when it creates a challenge and none when it verifies one: a key signature (an HMAC derived
 from the secret) lets the verifier check the solution without repeating the work. With the defaults, creating a
-challenge costs about 20 ms and 16 MiB of memory on the server.
+challenge costs about 9 ms of CPU time and 16 MiB of memory on the server.
 
 Payloads longer than 4096 bytes are rejected before they are decoded. A valid payload returns its signature as the
 replay key; the `Captcha` module stores it in Redis (`captcha:spent:*`, until the challenge expires) and accepts the
 payload once.
+
+### Challenge URL widget
+
+`AltchaCaptchaProviderPlugin` implements `Spryker\Client\CaptchaExtension\Dependency\Plugin\CaptchaChallengeUrlProviderPluginInterface`
+next to `CaptchaProviderPluginInterface`. When the `Captcha` module passes a challenge URL (the rate-limited challenge
+endpoint of the application that renders the login form), the plugin returns the URL widget and creates no challenge
+while the page renders:
+
+```html
+<altcha-widget challenge="<challenge URL>" auto="off"></altcha-widget>
+```
+
+- When the user ticks the checkbox, the widget fetches its challenge from the challenge URL and solves it (about 1 s),
+  and the checkbox shows as ticked; the user then submits the form. That is one challenge per tick; a page render and
+  typing create none.
+- When the challenge endpoint answers 429 or 503, the widget shows "Verification failed. Try again later." and the
+  checkbox stays unticked.
+- The checkbox is a required field. A form that uses the browser's form validation, like the Back Office login form,
+  asks the user to tick it and sends nothing. The Storefront login forms (`novalidate`) and the Merchant Portal login
+  forms (submitted by Angular) send the form, and the `Captcha` module rejects it with "Please complete the security
+  check."
+- `auto` comes from `SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig::getChallengeUrlWidgetAutoMode()`: `off` by
+  default; the widget also supports `onfocus` (when the user enters the form), `onsubmit` (when the user submits the
+  form, which the widget submits once the challenge is solved) and `onload`. With these values the widget ticks the
+  checkbox itself.
+- For each request to the challenge endpoint, the `Captcha` client calls the plugin's `createChallengeData()`, which
+  creates the challenge and returns its JSON document. On the Storefront it creates the challenge through the Zed
+  gateway, because the secret is readable only in Zed.
+- A challenge expires `CHALLENGE_TTL` seconds after it is created.
+- The Merchant Portal moves the form fields into its Angular form after the widget mounted, so the widget's own form
+  listeners are never attached. For the `onsubmit` and `onfocus` values, the entry script
+  `Zed/CaptchaAltcha/Presentation/Components/entry.ts` therefore binds the start of the widget to the document: with
+  `onsubmit` it holds a submit until the widget is verified, then submits again; a submit while the widget is verifying
+  is held; after an error or expiry the next submit verifies again. With the default `off`, the user starts the widget
+  with its checkbox, which needs no form listener.
+- A login form without a challenge URL renders the widget with a challenge created while the page renders.
+
+The challenge endpoints, their rate limit and their wiring (the Storefront route provider plugin, anonymous access to
+the Back Office and Merchant Portal endpoints) belong to the `Captcha` module.
 
 ## Wiring
 

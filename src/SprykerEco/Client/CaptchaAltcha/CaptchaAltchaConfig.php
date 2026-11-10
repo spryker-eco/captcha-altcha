@@ -8,6 +8,7 @@
 namespace SprykerEco\Client\CaptchaAltcha;
 
 use Spryker\Client\Kernel\AbstractBundleConfig;
+use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConfig as SharedCaptchaAltchaConfig;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 
 class CaptchaAltchaConfig extends AbstractBundleConfig
@@ -29,8 +30,6 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
     public const string KEY_DERIVATION_ALGORITHM_PBKDF2_SHA256 = 'PBKDF2/SHA-256';
 
     protected const string DEFAULT_HMAC_SECRET = '';
-
-    protected const int HMAC_SECRET_MINIMUM_LENGTH = 32;
 
     protected const string KEY_SIGNATURE_SECRET_LABEL = 'altcha-key-signature';
 
@@ -64,18 +63,26 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     protected const int DEFAULT_CHALLENGE_TTL = 300;
 
+    protected const string WIDGET_AUTO_OFF = 'off';
+
     protected const int MAXIMUM_PAYLOAD_LENGTH = 4096;
 
     /**
+     * @var list<string>
+     */
+    protected const array ZED_APPLICATIONS = ['ZED', 'MERCHANT_PORTAL'];
+
+    /**
      * Specification:
-     * - Returns the secret that signs (HMAC) ALTCHA challenges from `CaptchaAltchaConstants::HMAC_SECRET`.
-     * - Returns an empty string by default: without a secret, challenges are neither created nor accepted (fail closed).
+     * - Returns the secret that signs (HMAC) ALTCHA challenges from the Back Office configuration (`integrations:altcha:credentials:hmac_secret`), an empty string when it is not configured.
+     * - The secret is a secret setting: it is published to no key-value store, so only an application that registers `ConfigurationApplicationPlugin` reads it; elsewhere it reads as an empty string.
+     * - Without a secret, challenges are neither created nor accepted (fail closed).
      *
      * @api
      */
     public function getHmacSecret(): string
     {
-        return (string)$this->get(CaptchaAltchaConstants::HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
+        return (string)$this->getModuleConfig(SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET, static::DEFAULT_HMAC_SECRET);
     }
 
     /**
@@ -87,7 +94,7 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
      */
     public function getHmacSecretMinimumLength(): int
     {
-        return static::HMAC_SECRET_MINIMUM_LENGTH;
+        return SharedCaptchaAltchaConfig::HMAC_SECRET_MINIMUM_LENGTH;
     }
 
     /**
@@ -175,6 +182,20 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
 
     /**
      * Specification:
+     * - Returns the `auto` attribute of a widget that fetches its challenge from the challenge URL: `off` fetches and solves the
+     *   challenge when the user ticks the checkbox; a challenge is created only for that click.
+     * - The other values of the widget are `onfocus` (when the user enters the form), `onsubmit` (when the user submits the form, which
+     *   is submitted once the challenge is solved) and `onload`; with them the widget ticks the checkbox itself.
+     *
+     * @api
+     */
+    public function getChallengeUrlWidgetAutoMode(): string
+    {
+        return static::WIDGET_AUTO_OFF;
+    }
+
+    /**
+     * Specification:
      * - Returns the maximum length in bytes of a submitted payload, `4096` by default.
      * - A longer payload is rejected as invalid before it is decoded.
      *
@@ -183,5 +204,17 @@ class CaptchaAltchaConfig extends AbstractBundleConfig
     public function getMaximumPayloadLength(): int
     {
         return static::MAXIMUM_PAYLOAD_LENGTH;
+    }
+
+    /**
+     * Specification:
+     * - Returns `true` in the Back Office, Backend Gateway, Backend API and Merchant Portal applications.
+     * - These applications create and verify challenges in-process, so they need `ConfigurationApplicationPlugin` to read the HMAC secret.
+     *
+     * @api
+     */
+    public function isZedApplication(): bool
+    {
+        return defined('APPLICATION') && in_array(constant('APPLICATION'), static::ZED_APPLICATIONS, true);
     }
 }
