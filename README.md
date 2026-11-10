@@ -24,7 +24,7 @@ workspaces of the project `package.json`, so `npm install` installs the widget a
 ```
 
 A project that does not use workspaces adds the dependency to its root `package.json` instead:
-`npm install altcha@~3.2.0`.
+`npm install altcha@~3.5.0`.
 
 ## Configuration
 

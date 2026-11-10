@@ -3,6 +3,6 @@
     "name": "spryker-eco-captcha-altcha",
     "version": "1.0.0",
     "dependencies": {
-        "altcha": "~3.2.0"
+        "altcha": "~3.5.0"
     }
 }
