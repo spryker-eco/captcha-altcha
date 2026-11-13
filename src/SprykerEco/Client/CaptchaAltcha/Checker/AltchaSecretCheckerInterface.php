@@ -10,4 +10,6 @@ namespace SprykerEco\Client\CaptchaAltcha\Checker;
 interface AltchaSecretCheckerInterface
 {
     public function isHmacSecretConfigured(): bool;
+
+    public function isHmacSecretUsable(): bool;
 }

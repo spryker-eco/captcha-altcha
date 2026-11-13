@@ -57,6 +57,20 @@ class AltchaCaptchaProviderPlugin extends AbstractPlugin implements CaptchaProvi
 
     /**
      * {@inheritDoc}
+     * - Returns `true` when the HMAC secret of the Back Office configuration (`integrations:altcha:credentials:hmac_secret`) is at least 32 bytes long.
+     * - Reads the secret in the calling application: an application without the configuration service (`ConfigurationApplicationPlugin`) cannot read it and returns `false`.
+     *
+     * @api
+     */
+    public function isConfigured(): bool
+    {
+        return $this->getFactory()
+            ->createAltchaSecretChecker()
+            ->isHmacSecretUsable();
+    }
+
+    /**
+     * {@inheritDoc}
      * - Returns `null`: the `altcha-widget` posts its payload in the CAPTCHA form field, named through `CaptchaWidget.nameAttribute`.
      *
      * @api

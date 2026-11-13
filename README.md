@@ -52,7 +52,9 @@ $config[CaptchaAltchaConstants::CHALLENGE_TTL] = 300;    // seconds
 ```
 
 The environment settings above are optional and show their defaults. CAPTCHA is off by default: once the secret below
-is set, turn on **Configuration → Security → CAPTCHA → Enable CAPTCHA** in the Back Office.
+is set, turn on **Configuration → Security → CAPTCHA → Enable CAPTCHA** in the Back Office. Until then the Back Office
+refuses to turn it on: `AltchaCaptchaProviderPlugin::isConfigured()` returns `false` while the stored secret is empty or
+shorter than 32 characters.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -105,7 +107,8 @@ signed with the previous secret are rejected afterwards, so a visitor who had a 
 Without a secret, or with a shorter one, the provider fails closed and logs an error: no challenge is created, and a
 login that requires a CAPTCHA is rejected. With the CAPTCHA mode of the `Captcha` module set to `always`, this blocks
 every login form, the Back Office login included, so the secret cannot be set there. The install step above prevents
-this. To recover an environment without a valid secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
+this, and the Back Office refuses to turn the CAPTCHA on without a valid secret. Removing the secret while the CAPTCHA is
+on (with **Use default** on the ALTCHA tab) is not prevented. To recover an environment without a valid secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
 off for the time being without the Back Office:
 `CAPTCHA_ENABLED=false console configuration:import-environment security:captcha:login:is_enabled=CAPTCHA_ENABLED`.
 

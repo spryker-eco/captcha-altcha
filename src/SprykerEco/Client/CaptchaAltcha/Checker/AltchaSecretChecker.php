@@ -25,22 +25,34 @@ class AltchaSecretChecker implements AltchaSecretCheckerInterface
 
     public function isHmacSecretConfigured(): bool
     {
+        if ($this->isHmacSecretUsable()) {
+            return true;
+        }
+
+        $this->logUnusableHmacSecret();
+
+        return false;
+    }
+
+    public function isHmacSecretUsable(): bool
+    {
         $hmacSecretLength = strlen($this->captchaAltchaConfig->getHmacSecret());
 
-        if ($hmacSecretLength === 0) {
+        return $hmacSecretLength !== 0 && $hmacSecretLength >= $this->captchaAltchaConfig->getHmacSecretMinimumLength();
+    }
+
+    protected function logUnusableHmacSecret(): void
+    {
+        if ($this->captchaAltchaConfig->getHmacSecret() === '') {
             $this->logger->error(sprintf(static::LOG_MESSAGE_HMAC_SECRET_MISSING, SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET));
 
-            return false;
+            return;
         }
 
-        $hmacSecretMinimumLength = $this->captchaAltchaConfig->getHmacSecretMinimumLength();
-
-        if ($hmacSecretLength < $hmacSecretMinimumLength) {
-            $this->logger->error(sprintf(static::LOG_MESSAGE_HMAC_SECRET_TOO_SHORT, SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET, $hmacSecretMinimumLength));
-
-            return false;
-        }
-
-        return true;
+        $this->logger->error(sprintf(
+            static::LOG_MESSAGE_HMAC_SECRET_TOO_SHORT,
+            SharedCaptchaAltchaConfig::CONFIGURATION_KEY_HMAC_SECRET,
+            $this->captchaAltchaConfig->getHmacSecretMinimumLength(),
+        ));
     }
 }

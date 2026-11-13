@@ -74,6 +74,45 @@ class AltchaCaptchaProviderPluginTest extends Unit
         $this->assertTrue($captchaVerificationResponseTransfer->getIsValid());
     }
 
+    public function testIsConfiguredWithAnHmacSecretOfTheMinimumLength(): void
+    {
+        // Act
+        $isConfigured = $this->tester->createPlugin()->isConfigured();
+
+        // Assert
+        $this->assertTrue($isConfigured);
+    }
+
+    public function testCaptchaClientReportsTheProviderAsConfigured(): void
+    {
+        // Arrange
+        $captchaClient = $this->haveCaptchaClientWithAltchaProvider();
+
+        // Act
+        $isCaptchaProviderConfigured = $captchaClient->isCaptchaProviderConfigured();
+
+        // Assert
+        $this->assertTrue($isCaptchaProviderConfigured);
+    }
+
+    /**
+     * @dataProvider provideUnusableHmacSecrets
+     */
+    public function testIsNotConfiguredWithAnUnusableHmacSecretWithoutLogging(string $hmacSecret): void
+    {
+        // Arrange
+        $this->tester->haveAltchaConfiguration($hmacSecret);
+        $loggerMock = $this->createMock(LoggerInterface::class);
+        $loggerMock->expects($this->never())->method($this->anything());
+        $this->tester->mockFactoryMethod('getLogger', $loggerMock);
+
+        // Act
+        $isConfigured = $this->tester->createPlugin()->isConfigured();
+
+        // Assert
+        $this->assertFalse($isConfigured);
+    }
+
     public function testPostsPayloadInCaptchaFormField(): void
     {
         // Arrange
@@ -284,6 +323,17 @@ class AltchaCaptchaProviderPluginTest extends Unit
 
         // Assert
         $this->assertSame($expectedCaptchaVerificationResponseTransfer, $captchaVerificationResponseTransfer);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public function provideUnusableHmacSecrets(): array
+    {
+        return [
+            'empty' => [''],
+            'shorter than the minimum length' => [CaptchaAltchaClientTester::TOO_SHORT_HMAC_SECRET],
+        ];
     }
 
     /**
