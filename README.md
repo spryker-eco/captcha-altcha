@@ -35,8 +35,6 @@ use Spryker\Shared\Captcha\CaptchaConstants;
 use SprykerEco\Client\CaptchaAltcha\CaptchaAltchaConfig;
 use SprykerEco\Shared\CaptchaAltcha\CaptchaAltchaConstants;
 
-$config[CaptchaConstants::IS_CAPTCHA_ENABLED] = true;
-
 // The Captcha module accepts a solved challenge once; it keeps the spent challenges in Redis.
 $config[CaptchaConstants::REDIS_PERSISTENT_CONNECTION] = true;
 $config[CaptchaConstants::REDIS_SCHEME] = getenv('SPRYKER_KEY_VALUE_STORE_PROTOCOL') ?: 'tcp';
@@ -53,8 +51,8 @@ $config[CaptchaAltchaConstants::MINIMUM_COUNTER] = 20;   // the browser derives 
 $config[CaptchaAltchaConstants::CHALLENGE_TTL] = 300;    // seconds
 ```
 
-CAPTCHA is off by default (`CaptchaConstants::IS_CAPTCHA_ENABLED`); set it to `true` to enable it. The environment
-settings above are optional and show their defaults.
+The environment settings above are optional and show their defaults. CAPTCHA is off by default: once the secret below
+is set, turn on **Configuration → Security → CAPTCHA → Enable CAPTCHA** in the Back Office.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -108,7 +106,8 @@ Without a secret, or with a shorter one, the provider fails closed and logs an e
 login that requires a CAPTCHA is rejected. With the CAPTCHA mode of the `Captcha` module set to `always`, this blocks
 every login form, the Back Office login included, so the secret cannot be set there. The install step above prevents
 this. To recover an environment without a valid secret, run `console captcha-altcha:hmac-secret:generate`, or turn CAPTCHA
-off for the time being with `$config[CaptchaConstants::IS_CAPTCHA_ENABLED] = false;`.
+off for the time being without the Back Office:
+`CAPTCHA_ENABLED=false console configuration:import-environment security:captcha:login:is_enabled=CAPTCHA_ENABLED`.
 
 ### Where challenges are created and verified
 

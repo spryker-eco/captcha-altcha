@@ -25,3 +25,4 @@ suites:
                 - \SprykerTest\Client\Testify\Helper\DependencyProviderHelper
                 - \SprykerTest\Client\Testify\Helper\FactoryHelper
                 - \SprykerTest\Client\Captcha\Helper\CaptchaRedisHelper
+                - \SprykerTest\Client\Captcha\Helper\CaptchaConfigurationHelper

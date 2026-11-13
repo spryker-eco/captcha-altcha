@@ -20,7 +20,6 @@ use Spryker\Client\Captcha\CaptchaClientInterface;
 use Spryker\Client\Captcha\CaptchaDependencyProvider;
 use Spryker\Client\ZedRequest\ZedRequestClientInterface;
 use Spryker\Shared\Captcha\CaptchaConfig;
-use Spryker\Shared\Captcha\CaptchaConstants;
 use Spryker\Shared\Kernel\Transfer\TransferInterface;
 use SprykerEcoTest\Client\CaptchaAltcha\CaptchaAltchaClientTester;
 
@@ -323,7 +322,7 @@ class AltchaCaptchaProviderPluginTest extends Unit
 
     protected function haveCaptchaClientWithAltchaProvider(): CaptchaClientInterface
     {
-        $this->tester->setConfig(CaptchaConstants::IS_CAPTCHA_ENABLED, true);
+        $this->tester->haveCaptchaEnabled(true);
         $this->tester->setDependency(CaptchaDependencyProvider::PLUGIN_CAPTCHA_PROVIDER, $this->tester->createPlugin());
 
         return $this->tester->getLocator()->captcha()->client();
