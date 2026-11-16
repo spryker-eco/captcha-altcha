@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../../../Spryker/Configuration/resources/configuration/configuration-schema-v1.json
+features:
+    - key: integrations
+      name: Integrations
+      description: Third-party integrations configuration.
+      enabled: true
+      order: 100
+      tabs:
+          - key: altcha
+            name: ALTCHA
+            description: ALTCHA proof-of-work CAPTCHA of the login forms. The application creates and verifies the challenges itself, without a third-party service.
+            enabled: true
+            order: 10
+            groups:
+                - key: credentials
+                  name: Credentials
+                  description: The secret that signs the ALTCHA challenges. Every environment needs its own random secret.
+                  enabled: true
+                  order: 0
+                  scopes:
+                      - global
+                  settings:
+                      - key: hmac_secret
+                        name: HMAC Secret
+                        description: Signs the ALTCHA challenges. Use at least 32 random characters, for example the output of "openssl rand -hex 32". Without it, every login that requires a CAPTCHA is rejected. Stored encrypted.
+                        type: string
+                        default_value: ''
+                        enabled: true
+                        secret: true
+                        storefront: false
+                        order: 0
+                        scopes:
+                            - global
+                        constraints:
+                            - type: min
+                              message: Must be at least 32 characters long.
+                              options:
+                                  min: 32

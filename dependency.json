@@ -1,0 +1,6 @@
+{
+    "include": {
+        "spryker/configuration": "Stores the ALTCHA HMAC secret; read through the Kernel getModuleConfig().",
+        "spryker/transfer": "Provides transfer objects definition with strict types."
+    }
+}
